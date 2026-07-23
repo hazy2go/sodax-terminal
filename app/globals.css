@@ -533,6 +533,255 @@ table.data tbody tr:last-child td {
   font-size: 12px;
 }
 
+/* ---------- trade ---------- */
+
+.trade-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .trade-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mode-switch {
+  display: flex;
+  gap: 4px;
+}
+
+.mode-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  transition: background var(--t-fast), color var(--t-fast);
+}
+
+.mode-btn:hover {
+  color: var(--ink);
+}
+
+.mode-btn[aria-selected='true'] {
+  background: var(--primary-dim);
+  color: var(--primary-hover);
+}
+
+.trade-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field-row {
+  display: flex;
+  gap: 8px;
+}
+
+.amount-input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+}
+
+.amount-output {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 10px;
+  font-size: 18px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.quote-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.quote-meta > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quote-meta dt {
+  color: var(--faint);
+  letter-spacing: 0.04em;
+}
+
+.quote-meta dd {
+  text-align: right;
+}
+
+.trade-error {
+  color: var(--down);
+  font-size: 12px;
+}
+
+.trade-success {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+/* token picker */
+.picker {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.picker-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--raised);
+  transition: border-color var(--t-fast);
+}
+
+.picker-btn:hover {
+  border-color: var(--line-strong);
+}
+
+.picker-symbol {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.picker-chain {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.picker-caret {
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.picker-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: 280px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  z-index: var(--z-dropdown);
+  animation: menu-in 140ms var(--ease);
+  padding: 8px;
+}
+
+.picker-search {
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.picker-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 4px;
+  transition: background var(--t-fast);
+}
+
+.picker-item:hover {
+  background: var(--surface);
+}
+
+.picker-empty {
+  padding: 12px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+/* xstocks + how-it-works */
+.xstock-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.xstock-chip {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  transition: border-color var(--t-fast), background var(--t-fast);
+}
+
+.xstock-chip:hover {
+  border-color: var(--line-strong);
+}
+
+.xstock-chip.active {
+  background: var(--primary-dim);
+  border-color: var(--primary);
+  color: var(--primary-hover);
+}
+
+.xstock-list .footnote {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.how-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 52ch;
+}
+
 /* ---------- helpers ---------- */
 
 .grid-2 {
