@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ConnectButton } from './ConnectButton';
 import { AnalyticsTab } from '@/components/analytics/AnalyticsTab';
 import { TradeTab } from '@/components/trade/TradeTab';
+import { EarnTab } from '@/components/earn/EarnTab';
 
 const TABS = ['Trade', 'Earn', 'Portfolio', 'Analytics'] as const;
 export type TabName = (typeof TABS)[number];
@@ -40,7 +41,7 @@ export function Terminal() {
 
       <main className="content">
         {tab === 'Trade' && <TradeTab />}
-        {tab === 'Earn' && <div className="placeholder">EARN — coming in Phase 6</div>}
+        {tab === 'Earn' && <EarnTab />}
         {tab === 'Portfolio' && <div className="placeholder">PORTFOLIO — coming in Phase 7</div>}
         {tab === 'Analytics' && <AnalyticsTab />}
       </main>

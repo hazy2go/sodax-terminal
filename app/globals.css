@@ -782,6 +782,105 @@ table.data tbody tr:last-child td {
   max-width: 52ch;
 }
 
+/* ---------- earn ---------- */
+
+.earn-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .earn-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.row-btn {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.unstake-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.unstake-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* ---------- modal ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: oklch(0 0 0 / 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: var(--z-modal-backdrop);
+  animation: fade-in 140ms var(--ease);
+}
+
+.modal {
+  width: 100%;
+  max-width: 420px;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  z-index: var(--z-modal);
+  animation: modal-in 240ms var(--ease);
+}
+
+.modal-close {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+
+.modal-close:hover {
+  color: var(--ink);
+  background: var(--raised);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+select.input {
+  appearance: none;
+  cursor: pointer;
+}
+
 /* ---------- helpers ---------- */
 
 .grid-2 {
