@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "sodax-build": {
+      "source": "icon-project/sodax-sdks",
+      "sourceType": "github",
+      "skillPath": "packages/skills/skills/sodax-build/SKILL.md",
+      "computedHash": "9054ae75105dc3bcd77dcb00afeac92f911f73a3e99a8fcfa287daa4769a2378"
+    },
+    "sodax-dapp-kit": {
+      "source": "icon-project/sodax-sdks",
+      "sourceType": "github",
+      "skillPath": "packages/skills/skills/sodax-dapp-kit/SKILL.md",
+      "computedHash": "f80f3bb84f611867a3122d5665cf82441a5c08967e122c4466f2681f1bf63cd8"
+    },
+    "sodax-sdk": {
+      "source": "icon-project/sodax-sdks",
+      "sourceType": "github",
+      "skillPath": "packages/skills/skills/sodax-sdk/SKILL.md",
+      "computedHash": "dea49698c95067bd9b84c91dfb42173f87494af4d9d9eb2dbfbef347117bde2d"
+    },
+    "sodax-wallet-sdk-core": {
+      "source": "icon-project/sodax-sdks",
+      "sourceType": "github",
+      "skillPath": "packages/skills/skills/sodax-wallet-sdk-core/SKILL.md",
+      "computedHash": "2aef18faa4bed813b453a869e0d2cbfbf0fa556a50092254f0e2e7331b6d20e9"
+    },
+    "sodax-wallet-sdk-react": {
+      "source": "icon-project/sodax-sdks",
+      "sourceType": "github",
+      "skillPath": "packages/skills/skills/sodax-wallet-sdk-react/SKILL.md",
+      "computedHash": "b4c4d4d91027d4d2ef51f9ebbf5458903320c9480f944a21c505b31fa72a9e40"
+    }
+  }
+}
