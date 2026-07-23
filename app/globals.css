@@ -40,3 +40,14 @@ a {
     color-scheme: dark;
   }
 }
+
+/* --- temporary Phase 2 connect styles (replaced by design system in Phase 3) --- */
+.connect-row { display: flex; gap: 8px; min-height: 36px; }
+.connect-slot { position: relative; }
+.connect-btn { padding: 8px 14px; border: 1px solid #333; border-radius: 6px; background: #111; color: #eee; cursor: pointer; font-size: 13px; }
+.connect-btn.connected { border-color: #2a5; }
+.connect-btn .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #2a5; margin-right: 6px; }
+.connect-menu { position: absolute; right: 0; top: calc(100% + 4px); background: #161616; border: 1px solid #333; border-radius: 8px; min-width: 200px; z-index: 50; overflow: hidden; }
+.connect-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; background: none; border: none; color: #eee; cursor: pointer; font-size: 13px; text-decoration: none; }
+.connect-item:hover { background: #222; }
+.connect-item.dim { opacity: 0.5; }
