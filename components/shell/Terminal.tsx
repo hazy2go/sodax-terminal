@@ -5,6 +5,7 @@ import { ConnectButton } from './ConnectButton';
 import { AnalyticsTab } from '@/components/analytics/AnalyticsTab';
 import { TradeTab } from '@/components/trade/TradeTab';
 import { EarnTab } from '@/components/earn/EarnTab';
+import { PortfolioTab } from '@/components/portfolio/PortfolioTab';
 
 const TABS = ['Trade', 'Earn', 'Portfolio', 'Analytics'] as const;
 export type TabName = (typeof TABS)[number];
@@ -42,7 +43,7 @@ export function Terminal() {
       <main className="content">
         {tab === 'Trade' && <TradeTab />}
         {tab === 'Earn' && <EarnTab />}
-        {tab === 'Portfolio' && <div className="placeholder">PORTFOLIO — coming in Phase 7</div>}
+        {tab === 'Portfolio' && <PortfolioTab />}
         {tab === 'Analytics' && <AnalyticsTab />}
       </main>
     </div>
