@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import { ConnectButton } from './ConnectButton';
+import { AnalyticsTab } from '@/components/analytics/AnalyticsTab';
 
 const TABS = ['Trade', 'Earn', 'Portfolio', 'Analytics'] as const;
 export type TabName = (typeof TABS)[number];
 
 export function Terminal() {
-  const [tab, setTab] = useState<TabName>('Trade');
+  // Analytics is the default landing tab until Trade ships — live data, no wallet needed.
+  const [tab, setTab] = useState<TabName>('Analytics');
 
   return (
     <div className="shell">
@@ -39,7 +41,7 @@ export function Terminal() {
         {tab === 'Trade' && <div className="placeholder">TRADE — coming in Phase 5</div>}
         {tab === 'Earn' && <div className="placeholder">EARN — coming in Phase 6</div>}
         {tab === 'Portfolio' && <div className="placeholder">PORTFOLIO — coming in Phase 7</div>}
-        {tab === 'Analytics' && <div className="placeholder">ANALYTICS — coming in Phase 4</div>}
+        {tab === 'Analytics' && <AnalyticsTab />}
       </main>
     </div>
   );

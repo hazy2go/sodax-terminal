@@ -485,6 +485,54 @@ table.data tbody tr:last-child td {
   border-radius: 4px;
 }
 
+/* ---------- analytics ---------- */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.statbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.statbar-label {
+  color: var(--faint);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  margin-right: 2px;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.footnote {
+  color: var(--faint);
+  font-size: 12px;
+}
+
 /* ---------- helpers ---------- */
 
 .grid-2 {
