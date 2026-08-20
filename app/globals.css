@@ -280,45 +280,54 @@ input.amount {
   height: 100%;
 }
 
-.ring-track {
+.grid-ring {
   fill: none;
   stroke: var(--ring-dim);
   stroke-width: 1;
+  stroke-dasharray: 2 5;
   transform-box: fill-box;
   transform-origin: center;
 }
 
-.ring-track.lit {
-  stroke: var(--ring);
-}
-
-.ring-label {
+.grid-label {
   font-family: var(--font-data);
-  font-size: 8.5px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  fill: var(--faint);
   paint-order: stroke;
   stroke: var(--vacuum);
   stroke-width: 3px;
   stroke-linejoin: round;
-  letter-spacing: 0.12em;
-  fill: var(--faint);
+}
+
+.sector-div {
+  stroke: var(--hairline);
+  stroke-width: 1;
+}
+
+.sector-label {
+  font-family: var(--font-data);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  fill: var(--text-steel);
   text-transform: uppercase;
 }
 
-.ring-label.lit {
-  fill: var(--text-steel);
-}
-
-.calo {
-  fill: color-mix(in srgb, var(--energy) 72%, transparent);
-  shape-rendering: crispEdges;
-}
-
-.calo:hover {
+.sector-label.lit {
   fill: var(--track-yellow);
 }
 
-.calo.dim {
-  fill: color-mix(in srgb, var(--energy) 38%, transparent);
+/* one bar per asset — length is supplied liquidity on the shared log axis */
+.calo {
+  stroke: color-mix(in srgb, var(--energy) 66%, transparent);
+  stroke-width: 12;
+  stroke-linecap: butt;
+  transition: stroke 140ms var(--ease-out);
+}
+
+.calo:hover,
+.calo.lit {
+  stroke: var(--track-yellow);
 }
 
 .intent-track {
@@ -335,7 +344,11 @@ input.amount {
   stroke: var(--track-cyan);
 }
 
-/* competing solver quotes: confidence is line weight, not colour */
+.focus-track {
+  stroke: var(--track-yellow);
+  stroke-width: 2.6;
+}
+
 .intent-track.ghost {
   stroke: var(--text-steel);
   stroke-width: 0.6;
@@ -345,6 +358,14 @@ input.amount {
 
 .track-cap {
   stroke: none;
+}
+
+.track-cap.y {
+  fill: var(--track-yellow);
+}
+
+.track-cap.c {
+  fill: var(--track-cyan);
 }
 
 .core-ring {
@@ -410,6 +431,63 @@ input.amount {
 
 .callout-row span:first-child {
   color: var(--faint);
+}
+
+.ring-base {
+  fill: none;
+  stroke: var(--ring);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+.track-cap.y {
+  fill: var(--track-yellow);
+}
+
+.track-cap.c {
+  fill: var(--track-cyan);
+}
+
+.legend {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--vacuum-deep) 88%, transparent);
+  max-width: 260px;
+  pointer-events: none;
+}
+
+.legend-title {
+  font-family: var(--font-data);
+  font-size: 9px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 1px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-steel);
+  line-height: 1.3;
+}
+
+.legend-row svg {
+  flex-shrink: 0;
+}
+
+@media (max-width: 940px) {
+  .legend {
+    display: none;
+  }
 }
 
 .event-empty {

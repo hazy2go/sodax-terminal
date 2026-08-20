@@ -7,7 +7,6 @@ import { ChainKeys } from '@sodax/types';
 import type { SpokeChainKey } from '@sodax/types';
 import { chainName, isTokenAllowed } from '@/lib/config';
 import { cleanSymbol, fmtUsd, fmtAmount } from '@/lib/format';
-
 import {
   BOX_W,
   BOX_H,
@@ -15,12 +14,16 @@ import {
   CY,
   CORE_R,
   HUB,
-  ringRadius,
+  R_INNER,
+  R_OUTER,
+  makeAxis,
   polar,
+  valueRadius,
+  sector,
+  arcPath,
   trackPath,
-  angleFromHash,
-  logScale,
   hubLoopPath,
+  angleFromHash,
 } from './geometry';
 import { useFocus } from './focus';
 
@@ -28,12 +31,14 @@ type Callout = { x: number; y: number; rows: [string, string][] } | null;
 
 type Bar = {
   key: string;
-  ring: number;
-  deg: number;
-  len: number;
-  symbol: string;
+  start: number;
+  end: number;
+  r: number;
   usd: number;
+  assets: number;
+  top: string;
   chainKey: SpokeChainKey;
+  chain: string;
 };
 
 type Track = {
@@ -43,21 +48,11 @@ type Track = {
   from: string;
   to: string;
   amount: string;
+  end: { x: number; y: number } | null;
 };
 
 export function Detector() {
   const { sodax } = useSodaxContext();
-
-  /** Sonic is the beamline; every other supported spoke chain is a ring outward. */
-  const { spokes, ringOf } = useMemo(() => {
-    const list = sodax.config
-      .getSupportedSpokeChains()
-      .filter(c => c !== ChainKeys.SONIC_MAINNET);
-    return {
-      spokes: list,
-      ringOf: new Map<string, number>(list.map((c, i) => [c, i])),
-    };
-  }, [sodax]);
   const { data: reserves } = useReservesUsdFormat();
   const { data: orderbook } = useBackendOrderbook({
     params: { pagination: { offset: '0', limit: '26' } },
@@ -68,101 +63,128 @@ export function Detector() {
   const scopeRef = useRef<Scope | null>(null);
   const [callout, setCallout] = useState<Callout>(null);
 
-  /* ---- calorimeter bars: which assets each chain can source ---- */
-  const bars = useMemo<Bar[]>(() => {
-    if (!reserves) return [];
+  /** Sonic is the beamline; every other supported spoke chain owns a sector. */
+  const { spokes, sectorOf } = useMemo(() => {
+    const list = sodax.config
+      .getSupportedSpokeChains()
+      .filter(c => c !== ChainKeys.SONIC_MAINNET);
+    return { spokes: list, sectorOf: new Map<string, number>(list.map((c, i) => [c, i])) };
+  }, [sodax]);
+
+  /**
+   * One wedge per chain. Length is the total money-market liquidity that chain
+   * can actually reach — the sum over the assets it supports. Drawing a bar per
+   * asset instead repeated the same protocol-wide figures in every sector, which
+   * encoded nothing: 103 marks that all said the same thing.
+   */
+  const bars = useMemo<{ list: Bar[]; axis: ReturnType<typeof makeAxis> }>(() => {
+    const empty = { list: [] as Bar[], axis: makeAxis([]) };
+    if (!reserves) return empty;
     const bySymbol = new Map<string, number>();
     for (const r of reserves) {
       const sym = cleanSymbol(r.symbol);
       if (!isTokenAllowed(sym)) continue;
       bySymbol.set(sym.toUpperCase(), Number(r.totalLiquidityUSD));
     }
-    const max = Math.max(...bySymbol.values(), 1);
 
-    const out: Bar[] = [];
-    for (const chainKey of spokes) {
-      const ring = ringOf.get(chainKey)!;
+    const totals = spokes.map(chainKey => {
       const tokens = sodax.config
         .getSupportedMoneyMarketTokensByChainId(chainKey)
-        .filter(t => isTokenAllowed(t.symbol));
-      // spread across the right arc, where the comp puts the wedges
-      const span = 54;
-      // each ring's wedge group is nudged around the right arc so the groups
-      // read as a field rather than as concentric collinear rows
-      const start = 58 + ((ring * 7) % 26);
-      tokens.forEach((t, i) => {
-        const usd = bySymbol.get(t.symbol.toUpperCase());
-        if (usd === undefined) return;
-        const deg =
-          tokens.length > 1
-            ? start + (i * span) / (tokens.length - 1)
-            : start + span / 2 + ((ring % 5) - 2) * 4;
-        out.push({
-          key: `${chainKey}-${t.address}`,
-          ring,
-          deg,
-          len: logScale(usd, max, 34),
-          symbol: t.symbol,
-          usd,
-          chainKey,
-        });
-      });
-    }
-    return out;
-  }, [reserves, sodax, spokes, ringOf]);
+        .filter(t => isTokenAllowed(t.symbol) && bySymbol.has(t.symbol.toUpperCase()));
+      return tokens.reduce((sum, t) => sum + bySymbol.get(t.symbol.toUpperCase())!, 0);
+    });
+    const axis = makeAxis(totals);
 
-  /* ---- live intent tracks: real routes from the orderbook ---- */
+    const list = spokes.map((chainKey, i) => {
+      const s = sector(i, spokes.length);
+      const tokens = sodax.config
+        .getSupportedMoneyMarketTokensByChainId(chainKey)
+        .filter(t => isTokenAllowed(t.symbol) && bySymbol.has(t.symbol.toUpperCase()));
+
+      let usd = 0;
+      let top = '—';
+      let topUsd = -1;
+      for (const t of tokens) {
+        const v = bySymbol.get(t.symbol.toUpperCase())!;
+        usd += v;
+        if (v > topUsd) {
+          topUsd = v;
+          top = t.symbol;
+        }
+      }
+
+      return {
+        key: chainKey,
+        start: s.start,
+        end: s.end,
+        r: valueRadius(usd, axis),
+        usd,
+        assets: tokens.length,
+        top,
+        chainKey,
+        chain: chainName(chainKey),
+      };
+    });
+    return { list, axis };
+  }, [reserves, sodax, spokes]);
+
+  const { list: barList, axis } = bars;
+
+  /* ---- live intent tracks between named sectors ---- */
   const tracks = useMemo<Track[]>(() => {
     if (!orderbook) return [];
     const out: Track[] = [];
     for (const o of orderbook.data) {
-      const src = relayToRing(sodax, ringOf, o.intentData.srcChain);
-      const dst = relayToRing(sodax, ringOf, o.intentData.dstChain);
-      if (src === null || dst === null) continue;
+      const src = resolve(sodax, sectorOf, spokes.length, o.intentData.srcChain);
+      const dst = resolve(sodax, sectorOf, spokes.length, o.intentData.dstChain);
+      if (!src || !dst) continue;
 
       const token = sodax.config.getXTokenFromHubAsset(o.intentData.inputToken);
       if (!token || !isTokenAllowed(cleanSymbol(token.symbol))) continue;
 
       const hash = o.intentData.intentHash;
-      const sameRing = src.ring === dst.ring;
+      const hubLocal = src.hub && dst.hub;
+      const remaining = Number(o.intentState.remainingInput) / 10 ** token.decimals;
+      const srcR = src.hub ? CORE_R + 8 : R_OUTER - 16;
+      const dstR = dst.hub ? CORE_R + 8 : R_OUTER - 16;
+
       out.push({
         key: hash,
-        d: sameRing
-          ? hubLoopPath(angleFromHash(hash, 360))
-          : trackPath(
-              src.ring,
-              angleFromHash(hash, 300, 30),
-              dst.ring,
-              angleFromHash(hash + 'd', 300, 30),
-            ),
+        end: hubLocal ? null : polar(dstR, dst.deg),
+        d: hubLocal
+          ? hubLoopPath(angleFromHash(hash, 360), Math.sqrt(remaining) / 30)
+          : trackPath(src.deg, dst.deg, srcR, dstR),
         tone: angleFromHash(hash + 'tone', 2) < 1 ? 'y' : 'c',
         from: src.name,
         to: dst.name,
         amount: `${fmtAmount(o.intentState.remainingInput, token.decimals)} ${cleanSymbol(token.symbol)}`,
       });
     }
-    return out.slice(0, 30);
-  }, [orderbook, sodax, ringOf]);
+    return out.slice(0, 26);
+  }, [orderbook, sodax, sectorOf, spokes.length]);
 
   /* ---- the route the trade form is composing ---- */
   const focusTrack = useMemo(() => {
     if (!route) return null;
-    const s =
-      route.srcChainKey === ChainKeys.SONIC_MAINNET ? HUB : ringOf.get(route.srcChainKey);
-    const d =
-      route.dstChainKey === ChainKeys.SONIC_MAINNET ? HUB : ringOf.get(route.dstChainKey);
-    if (s === undefined || d === undefined) return null;
-    return trackPath(s, 318, d, 42);
-  }, [route, ringOf]);
+    const s = resolveKey(sectorOf, spokes.length, route.srcChainKey);
+    const d = resolveKey(sectorOf, spokes.length, route.dstChainKey);
+    if (!s || !d) return null;
+    return trackPath(
+      s.deg,
+      d.deg,
+      s.hub ? CORE_R + 8 : R_OUTER - 16,
+      d.hub ? CORE_R + 8 : R_OUTER - 16,
+    );
+  }, [route, sectorOf, spokes.length]);
 
-  const hubTvl = useMemo(() => {
-    if (!reserves) return null;
-    return reserves.reduce((sum, r) => sum + Number(r.totalLiquidityUSD), 0);
-  }, [reserves]);
+  const hubTvl = useMemo(
+    () => (reserves ? reserves.reduce((sum, r) => sum + Number(r.totalLiquidityUSD), 0) : null),
+    [reserves],
+  );
 
   /* ---- the event bloom: the one authored moment ---- */
   const bloomed = useRef(false);
-  const ready = bars.length > 0 || tracks.length > 0;
+  const ready = barList.length > 0 || tracks.length > 0;
   useEffect(() => {
     if (!rootRef.current || bloomed.current || !ready) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -178,36 +200,30 @@ export function Detector() {
         duration: 700,
         ease: 'outExpo',
       });
-
-      // Rings animate from an already-visible default — a failed or
-      // interrupted animation must never leave the diagram blank.
-      animate('.js-ring', {
-        opacity: [0.25, 1],
-        scale: [0.93, 1],
+      animate('.js-grid', {
+        opacity: [0.2, 1],
+        scale: [0.94, 1],
         duration: 900,
-        delay: stagger(46),
+        delay: stagger(60),
         ease: 'outExpo',
       });
-
+      animate('.js-bar', {
+        scaleY: [0, 1],
+        duration: 760,
+        delay: stagger(6, { start: 260 }),
+        ease: 'outExpo',
+      });
       const paths = svg.createDrawable('.js-track');
       animate(paths, {
         draw: ['0.5 0.5', '0 1'],
         duration: 1150,
-        delay: stagger(34, { start: 340 }),
+        delay: stagger(30, { start: 420 }),
         ease: 'outExpo',
       });
-
-      animate('.js-bar', {
-        scaleX: [0, 1],
-        duration: 620,
-        delay: stagger(7, { start: 520 }),
-        ease: 'outExpo',
-      });
-
-      animate('.js-ringlabel', {
+      animate('.js-label', {
         opacity: [0, 1],
-        duration: 500,
-        delay: stagger(40, { start: 420 }),
+        duration: 520,
+        delay: stagger(24, { start: 420 }),
         ease: 'outExpo',
       });
     });
@@ -227,57 +243,87 @@ export function Detector() {
         viewBox={`0 0 ${BOX_W} ${BOX_H}`}
         preserveAspectRatio="xMidYMid meet"
         role="img"
-          aria-label={`Detector cross-section: Sonic hub with ${spokes.length} spoke chains and ${tracks.length} open intents`}
+        aria-label={`Detector: Sonic hub, ${spokes.length} spoke chains, ${barList.length} chains and ${tracks.length} open intents`}
       >
-        {/* chain rings */}
+        {/* value axis — the rings are gridlines you read bar length against */}
         <g>
-          {spokes.map((chainKey, i) => (
+          {axis.ticks.map(v => (
             <circle
-              key={chainKey}
-              className="ring-track js-ring"
+              key={v}
+              className="grid-ring js-grid"
               cx={CX}
               cy={CY}
-              r={ringRadius(i)}
+              r={valueRadius(v, axis)}
             />
+          ))}
+          {axis.ticks.map(v => (
+            <text
+              key={`gl-${v}`}
+              className="grid-label js-label"
+              x={CX + 5}
+              y={CY - valueRadius(v, axis) - 4}
+            >
+              {gridLabel(v)}
+            </text>
           ))}
         </g>
 
-        {/* calorimeter bars — asset liquidity, by the chain that can source it */}
+        {/* sector dividers */}
         <g>
-          {bars.map(b => {
-            const r = ringRadius(b.ring) + 4;
+          {spokes.map((chainKey, i) => {
+            const s = sector(i, spokes.length);
+            const a = polar(R_INNER - 5, s.start - 1.7);
+            const b = polar(R_OUTER + 4, s.start - 1.7);
             return (
-              <g
-                key={b.key}
-                transform={`translate(${CX} ${CY}) rotate(${b.deg - 90})`}
-              >
-                <rect
-                  className="calo js-bar"
-                  x={r}
-                  y={-1.6}
-                  width={b.len}
-                  height={3.2}
-                  style={{ transformOrigin: `${r}px 0px` }}
-                  onMouseEnter={() => {
-                    const p = polar(r + b.len, b.deg);
-                    setCallout({
-                      x: (p.x / BOX_W) * 100,
-                      y: (p.y / BOX_H) * 100,
-                      rows: [
-                        ['asset', b.symbol],
-                        ['supplied', fmtUsd(b.usd, { compact: true })],
-                        ['sourceable', chainName(b.chainKey)],
-                      ],
-                    });
-                  }}
-                  onMouseLeave={() => setCallout(null)}
-                />
-              </g>
+              <line
+                key={`div-${chainKey}`}
+                className="sector-div"
+                x1={a.x}
+                y1={a.y}
+                x2={b.x}
+                y2={b.y}
+              />
             );
           })}
         </g>
 
-        {/* live intent tracks */}
+        {/* one wedge per chain — reachable money-market liquidity */}
+        <g>
+          {barList.map(b => {
+            const mid = (b.start + b.end) / 2;
+            const p0 = polar(R_INNER, mid);
+            const p1 = polar(b.r, mid);
+            const lit = route
+              ? b.chainKey === route.srcChainKey || b.chainKey === route.dstChainKey
+              : false;
+            return (
+              <line
+                key={b.key}
+                className={`calo js-bar${lit ? ' lit' : ''}`}
+                x1={p0.x}
+                y1={p0.y}
+                x2={p1.x}
+                y2={p1.y}
+                style={{ transformOrigin: `${p0.x}px ${p0.y}px` }}
+                onMouseEnter={() =>
+                  setCallout({
+                    x: (p1.x / BOX_W) * 100,
+                    y: (p1.y / BOX_H) * 100,
+                    rows: [
+                      ['chain', b.chain],
+                      ['reachable', fmtUsd(b.usd, { compact: true })],
+                      ['assets', String(b.assets)],
+                      ['deepest', b.top],
+                    ],
+                  })
+                }
+                onMouseLeave={() => setCallout(null)}
+              />
+            );
+          })}
+        </g>
+
+        {/* live intents */}
         <g>
           {tracks.map(t => (
             <path
@@ -286,8 +332,8 @@ export function Detector() {
               d={t.d}
               onMouseEnter={() =>
                 setCallout({
-                  x: 62,
-                  y: 12,
+                  x: 58,
+                  y: 10,
                   rows: [
                     ['route', `${t.from} → ${t.to}`],
                     ['remaining', t.amount],
@@ -298,34 +344,44 @@ export function Detector() {
               onMouseLeave={() => setCallout(null)}
             />
           ))}
+          {tracks.map(t =>
+            t.end ? (
+              <circle
+                key={`cap-${t.key}`}
+                className={`track-cap ${t.tone}`}
+                cx={t.end.x}
+                cy={t.end.y}
+                r={2.8}
+              />
+            ) : null,
+          )}
         </g>
 
-        {/* the route being composed in the trade form */}
         {focusTrack && (
           <path
-            className="intent-track"
+            className="intent-track focus-track"
             d={focusTrack}
-            stroke="var(--track-yellow)"
-            strokeWidth={2.2}
-            strokeDasharray={route?.state === 'quoting' ? '5 6' : undefined}
-            opacity={route?.state === 'quoting' ? 0.75 : 1}
+            strokeDasharray={route?.state === 'quoting' ? '6 7' : undefined}
           />
         )}
 
-        {/* chain labels up the beam axis — one row per ring, never colliding */}
+        {/* chain names, one per sector, set on the sector's own angle */}
         <g>
           {spokes.map((chainKey, i) => {
-            const p = polar(ringRadius(i), 0);
+            const s = sector(i, spokes.length);
+            const p = polar(R_OUTER + 16, s.mid);
+            const flip = s.mid > 180;
             const lit = route
               ? chainKey === route.srcChainKey || chainKey === route.dstChainKey
               : false;
             return (
               <text
                 key={chainKey}
-                className={`ring-label js-ringlabel${lit ? ' lit' : ''}`}
-                x={p.x - 9}
-                y={p.y + 3}
-                textAnchor="end"
+                className={`sector-label js-label${lit ? ' lit' : ''}`}
+                x={p.x}
+                y={p.y}
+                textAnchor={flip ? 'end' : 'start'}
+                transform={`rotate(${flip ? s.mid + 90 : s.mid - 90} ${p.x} ${p.y})`}
               >
                 {chainName(chainKey)}
               </text>
@@ -349,10 +405,7 @@ export function Detector() {
       {callout && (
         <div
           className="callout"
-          style={{
-            left: `${Math.min(callout.x, 68)}%`,
-            top: `${Math.min(callout.y, 82)}%`,
-          }}
+          style={{ left: `${Math.min(callout.x, 66)}%`, top: `${Math.min(callout.y, 80)}%` }}
         >
           {callout.rows.map(([k, v]) => (
             <div className="callout-row" key={k}>
@@ -363,22 +416,77 @@ export function Detector() {
         </div>
       )}
 
+      {!loading && (
+        <div className="legend">
+          <div className="legend-title">Reading this</div>
+          <div className="legend-row">
+            <svg width="24" height="12" viewBox="0 0 24 12">
+              <line x1="3" y1="11" x2="3" y2="4" stroke="var(--energy)" strokeWidth="2.4" />
+              <line x1="9" y1="11" x2="9" y2="1" stroke="var(--energy)" strokeWidth="2.4" />
+              <line x1="15" y1="11" x2="15" y2="7" stroke="var(--energy)" strokeWidth="2.4" />
+            </svg>
+            <span>One wedge per chain — length is liquidity it can reach</span>
+          </div>
+          <div className="legend-row">
+            <svg width="24" height="12" viewBox="0 0 24 12">
+              <path d="M1 11 A10 10 0 0 1 21 6" stroke="var(--ring)" strokeWidth="1" fill="none" />
+            </svg>
+            <span>
+              Rings are the value scale, {gridLabel(axis.lo)} to {gridLabel(axis.hi)}
+            </span>
+          </div>
+          <div className="legend-row">
+            <svg width="24" height="12" viewBox="0 0 24 12">
+              <path d="M1 11C7 11 9 2 16 2" stroke="var(--track-yellow)" strokeWidth="1.5" fill="none" />
+              <circle cx="16" cy="2" r="2.2" fill="var(--track-yellow)" />
+            </svg>
+            <span>An open intent, source chain to destination</span>
+          </div>
+          <div className="legend-row">
+            <svg width="24" height="12" viewBox="0 0 24 12">
+              <path d="M4 6C4 1 12 1 12 6C12 11 4 11 4 6" stroke="var(--track-cyan)" strokeWidth="1.5" fill="none" />
+            </svg>
+            <span>A loop — a swap that stays on the hub</span>
+          </div>
+        </div>
+      )}
+
       {loading && <div className="event-empty">Acquiring detector data…</div>}
     </div>
   );
 }
 
+function gridLabel(v: number): string {
+  if (v >= 1_000_000_000) return `$${v / 1_000_000_000}B`;
+  if (v >= 1_000_000) return `$${v / 1_000_000}M`;
+  if (v >= 1_000) return `$${v / 1_000}K`;
+  return `$${v}`;
+}
+
 /** Relay chain ids are not EVM chain ids — always resolve through the SDK. */
-function relayToRing(
+function resolve(
   sodax: ReturnType<typeof useSodaxContext>['sodax'],
-  ringOf: Map<string, number>,
+  sectorOf: Map<string, number>,
+  count: number,
   relayChainId: number,
-): { ring: number; name: string } | null {
+): { deg: number; name: string; hub: boolean } | null {
   const id = BigInt(relayChainId);
   if (!sodax.config.isValidIntentRelayChainId(id)) return null;
   const key = sodax.config.getSpokeChainKeyFromIntentRelayChainId(id);
-  if (key === ChainKeys.SONIC_MAINNET) return { ring: HUB, name: chainName(key) };
-  const ring = ringOf.get(key);
-  if (ring === undefined) return null;
-  return { ring, name: chainName(key) };
+  return resolveKey(sectorOf, count, key);
 }
+
+function resolveKey(
+  sectorOf: Map<string, number>,
+  count: number,
+  key: string,
+): { deg: number; name: string; hub: boolean } | null {
+  if (key === ChainKeys.SONIC_MAINNET) {
+    return { deg: 0, name: chainName(key), hub: true };
+  }
+  const i = sectorOf.get(key);
+  if (i === undefined) return null;
+  return { deg: sector(i, count).mid, name: chainName(key), hub: false };
+}
+
+void HUB;
