@@ -46,7 +46,12 @@ type ChainPoint = {
   assets: number;
   intents: number;
   hub: boolean;
-  itemStyle: { color: string; borderColor: string; borderWidth: number };
+  itemStyle: {
+    color: string;
+    borderColor: string;
+    borderWidth: number;
+    opacity?: number;
+  };
   label: { position: 'left' | 'right'; color: string };
 };
 
@@ -68,6 +73,7 @@ export function Detector() {
   const { route } = useFocus();
 
   // Motion is opt-out, and the reduced-motion build is a genuinely static chart.
+  const [hovered, setHovered] = useState<string | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -166,6 +172,7 @@ export function Detector() {
           color: lit ? TRACK : active ? FLOW : IDLE_FILL,
           borderColor: lit ? TRACK : active ? FLOW : STEEL,
           borderWidth: 1,
+          opacity: hovered && hovered !== name ? 0.25 : 1,
         },
         // label sits outboard of the ring, so it never lands on a neighbour
         label: { position: x >= 0 ? 'right' : 'left', color: active ? INK : MUTED },
@@ -190,18 +197,33 @@ export function Detector() {
     const shown = ranked.slice(0, MAX_ROUTES);
     const hiddenRoutes = ranked.length - shown.length;
 
-    const flows = shown.map(p => ({
-      coords: [pos.get(p.from) ?? [0, 0], pos.get(p.to) ?? [0, 0]],
-      value: p.count,
-      from: p.from,
-      to: p.to,
-      lineStyle: {
-        color: p.from === hubName ? TRACK : FLOW,
-        width: Math.min(2.4, 0.8 + Math.log2(p.count + 1) * 0.6),
-        opacity: 0.28,
-        curveness: 0.22,
-      },
-    }));
+    /**
+     * Every cross-chain intent settles through Sonic, so a route is drawn as
+     * source -> hub -> destination rather than as a direct chord. That is both
+     * what actually happens and what turns sixty crossing chords into a radial
+     * star you can read.
+     */
+    const flows = shown.map(p => {
+      const a = pos.get(p.from) ?? [0, 0];
+      const b = pos.get(p.to) ?? [0, 0];
+      const viaHub = p.from !== hubName && p.to !== hubName;
+      const touches = (c: string | null) => c === p.from || c === p.to;
+      const dimmed = hovered !== null && !touches(hovered);
+
+      return {
+        coords: viaHub ? [a, [0, 0], b] : [a, b],
+        value: p.count,
+        from: p.from,
+        to: p.to,
+        lineStyle: {
+          color: p.from === hubName || p.to === hubName ? TRACK : FLOW,
+          width: Math.min(2.2, 0.7 + Math.log2(p.count + 1) * 0.5),
+          opacity: dimmed ? 0.03 : hovered ? 0.8 : 0.16,
+          cap: 'round',
+          join: 'round',
+        },
+      };
+    });
 
     return {
       idle,
@@ -216,7 +238,7 @@ export function Detector() {
       total: orderbook?.total ?? 0,
       totalReach: [...reach.values()].reduce((s, r) => s + r.usd, 0),
     };
-  }, [reserves, orderbook, sodax, spokes, route]);
+  }, [reserves, orderbook, sodax, spokes, route, hovered]);
 
   const option = useMemo(() => {
     const labelBase = {
@@ -258,7 +280,7 @@ export function Detector() {
         {
           type: 'lines' as const,
           coordinateSystem: 'cartesian2d',
-          polyline: false,
+          polyline: true,
           data: model.flows,
           silent: true,
           z: 1,
@@ -267,6 +289,7 @@ export function Detector() {
         {
           type: 'lines' as const,
           coordinateSystem: 'cartesian2d',
+          polyline: true,
           data: model.flows,
           z: 2,
           effect: {
@@ -330,6 +353,19 @@ export function Detector() {
     };
   }, [model, reduceMotion]);
 
+  const onEvents = useMemo(
+    () => ({
+      mouseover: (p: { seriesType?: string; name?: string }) => {
+        if (p.seriesType === 'scatter' || p.seriesType === 'effectScatter') {
+          setHovered(p.name ?? null);
+        }
+      },
+      mouseout: () => setHovered(null),
+      globalout: () => setHovered(null),
+    }),
+    [],
+  );
+
   const loading = !reserves && !orderbook;
 
   return (
@@ -344,6 +380,7 @@ export function Detector() {
           option={option}
           notMerge
           lazyUpdate
+          onEvents={onEvents}
           style={{ height: '100%', width: '100%' }}
         />
       )}
@@ -361,7 +398,7 @@ export function Detector() {
           Pulsing, a chain carrying live intents
         </LegendRow>
         <LegendRow swatch={<span className="h-0.5 w-5 bg-flow" />}>
-          Particles travel the routes intents are actually taking
+          Every route settles through the hub. Hover a chain to isolate its flow
         </LegendRow>
         <LegendRow swatch={<span className="size-2.5 rounded-full bg-track" />}>
           Sonic, the hub every route settles through
