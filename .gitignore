@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Impeccable design artifacts — keep the durable text record, not the rasters
+.impeccable/mocks/*.png
+.impeccable/shots/
+.impeccable/reference/
+.impeccable/questions/

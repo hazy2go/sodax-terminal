@@ -18,9 +18,9 @@ import { parseUnits } from 'viem';
 import { chainName } from '@/lib/config';
 import { chainTypeOf, TRADE_CHAINS } from '@/lib/tokens';
 import { cleanSymbol, fmtPct } from '@/lib/format';
+import { IconClose } from '@/components/icons';
 
 type MMAction = 'supply' | 'borrow' | 'withdraw' | 'repay';
-
 const ACTIONS: MMAction[] = ['supply', 'borrow', 'withdraw', 'repay'];
 
 function errMsg(e: unknown): string {
@@ -28,7 +28,11 @@ function errMsg(e: unknown): string {
   return 'Transaction failed';
 }
 
-export function MMModal({
+/**
+ * Supply/borrow needs protected focus — it ends in a signature and must show
+ * fees and rates before the user commits — so it earns a modal.
+ */
+export function MMSheet({
   reserve,
   onClose,
 }: {
@@ -43,7 +47,14 @@ export function MMModal({
 
   const symbol = cleanSymbol(reserve.symbol);
 
-  // spoke chains where this asset can be sourced, matched by symbol
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const chainOptions = useMemo(() => {
     const out: { chainKey: SpokeChainKey; token: XToken }[] = [];
     for (const chainKey of TRADE_CHAINS) {
@@ -61,9 +72,7 @@ export function MMModal({
   }, [chainOptions, chainKey]);
 
   const selected = chainOptions.find(c => c.chainKey === chainKey) ?? null;
-  const account = useXAccount({
-    xChainType: chainKey ? chainTypeOf(chainKey) : 'EVM',
-  });
+  const account = useXAccount({ xChainType: chainKey ? chainTypeOf(chainKey) : 'EVM' });
   const walletProvider = useWalletProvider({
     xChainType: chainKey ? chainTypeOf(chainKey) : 'EVM',
   });
@@ -120,33 +129,33 @@ export function MMModal({
   };
 
   const needsWallet = !account.address;
-  const apy = action === 'borrow' || action === 'repay'
-    ? reserve.variableBorrowAPY
-    : reserve.supplyAPY;
+  const borrowSide = action === 'borrow' || action === 'repay';
+  const apy = borrowSide ? reserve.variableBorrowAPY : reserve.supplyAPY;
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="scrim" onClick={onClose}>
       <div
-        className="modal panel"
+        className="sheet"
         role="dialog"
         aria-modal="true"
         aria-label={`${symbol} money market`}
         onClick={e => e.stopPropagation()}
       >
-        <div className="panel-head">
-          <h2 className="panel-title">{symbol} · Money Market</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
-            ✕
+        <div className="instr-head">
+          <h2 className="instr-title">{symbol} · Money market</h2>
+          <button className="icon-btn" onClick={onClose} aria-label="Close">
+            <IconClose size={15} />
           </button>
         </div>
-        <div className="panel-body trade-form">
-          <div className="mode-switch" role="tablist" aria-label="Action">
+
+        <div className="instr-body">
+          <div className="seg" role="tablist" aria-label="Action">
             {ACTIONS.map(a => (
               <button
                 key={a}
                 role="tab"
                 aria-selected={action === a}
-                className="mode-btn"
+                className="seg-btn"
                 onClick={() => {
                   setAction(a);
                   setError(null);
@@ -159,7 +168,7 @@ export function MMModal({
           </div>
 
           <div className="field">
-            <label className="field-label" htmlFor="mm-chain">
+            <label className="label" htmlFor="mm-chain">
               {action === 'supply' || action === 'repay' ? 'From chain' : 'To chain'}
             </label>
             <select
@@ -175,62 +184,68 @@ export function MMModal({
               ))}
             </select>
             {chainOptions.length === 0 && (
-              <span className="footnote">No spoke token for {symbol} on the mounted chains.</span>
+              <p className="note">No spoke token for {symbol} on the mounted chains.</p>
             )}
           </div>
 
           <div className="field">
-            <label className="field-label" htmlFor="mm-amount">
+            <label className="label" htmlFor="mm-amount">
               Amount
             </label>
-            <input
-              id="mm-amount"
-              className="input amount-input"
-              inputMode="decimal"
-              placeholder="0.0"
-              value={amount}
-              onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))}
-            />
+            <div className="field-row">
+              <input
+                id="mm-amount"
+                className="amount"
+                inputMode="decimal"
+                placeholder="0.0"
+                value={amount}
+                onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+              />
+            </div>
           </div>
 
-          <dl className="quote-meta mono">
-            <div>
-              <dt>{action === 'borrow' || action === 'repay' ? 'Borrow APY' : 'Supply APY'}</dt>
-              <dd className={action === 'borrow' || action === 'repay' ? '' : 'up'}>
-                {fmtPct(apy)}
-              </dd>
+          <dl className="readout">
+            <div className="readout-row">
+              <dt>{borrowSide ? 'Borrow APY' : 'Supply APY'}</dt>
+              <span className="rule" />
+              <dd className={borrowSide ? '' : 'up'}>{fmtPct(apy)}</dd>
             </div>
-            <div>
-              <dt>Utilization</dt>
+            <div className="readout-row">
+              <dt>Utilisation</dt>
+              <span className="rule" />
               <dd>{fmtPct(reserve.borrowUsageRatio, 0)}</dd>
             </div>
           </dl>
 
           <button
-            className="btn btn-primary btn-wide"
+            className="btn btn-primary"
             disabled={busy || !params || needsWallet}
             onClick={submit}
           >
-            {needsWallet
-              ? `Connect ${chainKey ? chainName(chainKey) : ''} wallet`
-              : isApproving
-                ? 'Approving…'
-                : busy
-                  ? 'Confirming…'
-                  : !params
-                    ? 'Enter an amount'
-                    : `${action[0].toUpperCase()}${action.slice(1)} ${symbol}`}
+            {isApproving
+              ? 'Approving…'
+              : busy
+                ? 'Confirming…'
+                : !params
+                  ? 'Enter an amount'
+                  : `${action[0].toUpperCase()}${action.slice(1)} ${symbol}`}
           </button>
 
+          {needsWallet && (
+            <p className="note">
+              Connect a {chainKey ? chainName(chainKey) : ''} wallet to continue.
+            </p>
+          )}
+
           {error && (
-            <p className="trade-error" role="alert">
+            <p className="alert" role="alert">
               {error}
             </p>
           )}
           {done && (
-            <div className="trade-success" role="status">
-              <span className="badge badge-up">CONFIRMED</span>
-              <span className="mono">
+            <div className="receipt" role="status">
+              <span className="badge badge-up">Confirmed</span>
+              <span>
                 {action} {symbol}
               </span>
             </div>

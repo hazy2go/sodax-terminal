@@ -10,9 +10,11 @@ const queryClient = createSodaxQueryClient();
 
 // Static module-level configs — SodaxProvider tracks config by reference,
 // so these must never be recreated per render.
-const sodaxConfig: SodaxOptions = {
-  swaps: { partnerFee: PARTNER_FEE },
-};
+// PARTNER_FEE is undefined when the partner address env var is unset — in that
+// case we ship no fee config at all rather than a fee pointed at nowhere.
+const sodaxConfig: SodaxOptions = PARTNER_FEE
+  ? { swaps: { partnerFee: PARTNER_FEE } }
+  : {};
 
 // WalletConnect init touches indexedDB — browser only, never during SSR.
 const isBrowser = typeof window !== 'undefined';

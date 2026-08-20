@@ -1,0 +1,9 @@
+{
+  "comp": "A — canvas-dominant",
+  "model": "gpt_image_2",
+  "aspect": "16:9",
+  "approved": true,
+  "approvedAs": "spine",
+  "combinedWith": ".impeccable/mocks/comp-c-radial.png",
+  "note": "Approved as the build spine. Graft C's per-ring calorimeter bars; fix tracks to route src->hub->dst rather than radiating symmetrically; rings must read as a flat cross-section, not a wireframe globe. All figures in the comp are synthetic demonstration data."
+}

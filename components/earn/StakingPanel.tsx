@@ -152,38 +152,32 @@ export function StakingPanel() {
   const unstakeDays = config ? Number(config.unstakingPeriod) / 86400 : null;
 
   return (
-    <section className="panel">
-      <div className="panel-head">
-        <h2 className="panel-title">Stake SODA</h2>
-        <span className="badge badge-primary">xSODA vault</span>
+    <section>
+      <div className="instr-head">
+        <h2 className="instr-title">Stake SODA</h2>
+        <span className="badge badge-neutral">xSODA vault</span>
       </div>
-      <div className="panel-body trade-form">
-        <dl className="quote-meta mono">
-          <div>
-            <dt>Total staked</dt>
-            <dd>{info ? `${fmtSoda(info.totalStaked)} SODA` : '—'}</dd>
-          </div>
-          <div>
-            <dt>Your xSODA</dt>
-            <dd>{info && srcAddress ? fmtSoda(info.userXSodaBalance) : '—'}</dd>
-          </div>
-          <div>
-            <dt>Your value</dt>
-            <dd>{info && srcAddress ? `${fmtSoda(info.userXSodaValue)} SODA` : '—'}</dd>
-          </div>
-          <div>
-            <dt>Unstaking period</dt>
-            <dd>{unstakeDays !== null ? `${unstakeDays.toFixed(0)} days` : '—'}</dd>
-          </div>
+      <div className="instr-body">
+        <dl className="readout">
+          <Row k="Total staked" v={info ? `${fmtSoda(info.totalStaked)} SODA` : '—'} />
+          <Row k="Your xSODA" v={info && srcAddress ? fmtSoda(info.userXSodaBalance) : '—'} />
+          <Row
+            k="Your value"
+            v={info && srcAddress ? `${fmtSoda(info.userXSodaValue)} SODA` : '—'}
+          />
+          <Row
+            k="Unstaking period"
+            v={unstakeDays !== null ? `${unstakeDays.toFixed(0)} days` : '—'}
+          />
         </dl>
 
-        <div className="mode-switch" role="tablist" aria-label="Staking action">
+        <div className="seg" role="tablist" aria-label="Staking action">
           {(['stake', 'unstake'] as const).map(t => (
             <button
               key={t}
               role="tab"
               aria-selected={tab === t}
-              className="mode-btn"
+              className="seg-btn"
               onClick={() => {
                 setTab(t);
                 setError(null);
@@ -196,44 +190,48 @@ export function StakingPanel() {
         </div>
 
         <div className="field">
-          <label className="field-label" htmlFor="stake-amount">
+          <label className="label" htmlFor="stake-amount">
             {tab === 'stake' ? 'SODA amount' : 'xSODA amount'}
           </label>
-          <input
-            id="stake-amount"
-            className="input amount-input"
-            inputMode="decimal"
-            placeholder="0.0"
-            value={amount}
-            onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))}
-          />
+          <div className="field-row">
+            <input
+              id="stake-amount"
+              className="amount"
+              inputMode="decimal"
+              placeholder="0.0"
+              value={amount}
+              onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+            />
+          </div>
           {tab === 'stake' && ratio && parsedAmount > 0n && (
-            <span className="footnote mono">≈ {fmtSoda(ratio[0])} xSODA</span>
+            <span className="label">≈ {fmtSoda(ratio[0])} xSODA</span>
           )}
         </div>
 
         <button
-          className="btn btn-primary btn-wide"
+          className="btn btn-primary"
           disabled={busy || !srcAddress || parsedAmount <= 0n}
           onClick={submit}
         >
-          {!srcAddress
-            ? 'Connect EVM wallet'
-            : busy
-              ? 'Confirming…'
-              : tab === 'stake'
-                ? 'Stake SODA'
-                : 'Request unstake'}
+          {busy
+            ? 'Confirming…'
+            : tab === 'stake'
+              ? 'Stake SODA'
+              : 'Request unstake'}
         </button>
 
+        {!srcAddress && (
+          <p className="note">Connect an EVM wallet to stake or unstake SODA.</p>
+        )}
+
         {unstaking && unstaking.userUnstakeSodaRequests?.length > 0 && (
-          <div className="unstake-list">
-            <span className="field-label">Pending unstakes</span>
+          <div className="stack">
+            <span className="label">Pending unstakes</span>
             {unstaking.userUnstakeSodaRequests.map(u => (
-              <div key={u.id.toString()} className="unstake-row mono">
+              <div key={u.id.toString()} className="row-between fig">
                 <span>{fmtSoda(u.request.amount)} SODA</span>
                 <button
-                  className="btn"
+                  className="btn btn-row"
                   disabled={busy}
                   onClick={() => claimOne(u.id, u.request.amount)}
                 >
@@ -245,16 +243,26 @@ export function StakingPanel() {
         )}
 
         {error && (
-          <p className="trade-error" role="alert">
+          <p className="alert" role="alert">
             {error}
           </p>
         )}
         {done && (
-          <div className="trade-success" role="status">
-            <span className="badge badge-up">{done.toUpperCase()}</span>
+          <div className="receipt" role="status">
+            <span className="badge badge-up">{done}</span>
           </div>
         )}
       </div>
     </section>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="readout-row">
+      <dt>{k}</dt>
+      <span className="rule" />
+      <dd>{v}</dd>
+    </div>
   );
 }

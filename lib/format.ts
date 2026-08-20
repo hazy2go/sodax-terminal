@@ -60,22 +60,3 @@ export function fmtDeadline(deadline: string, nowMs: number): string {
   if (hours < 48) return `${hours}h`;
   return `${Math.floor(hours / 24)}d`;
 }
-
-/** Numeric chain ids seen in intents → display names. */
-const INTENT_CHAIN_NAMES: Record<number, string> = {
-  1: 'Ethereum',
-  10: 'Optimism',
-  56: 'BNB',
-  137: 'Polygon',
-  146: 'Sonic',
-  999: 'HyperEVM',
-  8217: 'Kaia',
-  8453: 'Base',
-  42161: 'Arbitrum',
-  43114: 'Avalanche',
-  1890: 'Lightlink',
-};
-
-export function intentChainName(id: number): string {
-  return INTENT_CHAIN_NAMES[id] ?? `#${id}`;
-}

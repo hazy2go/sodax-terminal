@@ -1,0 +1,61 @@
+{
+  "title": "Choose the visual world — SODAX Terminal",
+  "question": "The roll assigned Event Display. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Event Display",
+      "kicker": "THE ROLL",
+      "lineage": "collider detector event displays — concentric rings, curved tracks, calorimeter wedges",
+      "thesis": "The hub IS the beamline: every intent is one event, fanning from centre through rings of chains — the architecture diagram becomes the interface, refusing the stat-card dashboard entirely.",
+      "palette": ["#08090B", "#2E4A6B", "#F2C94C", "#4CC9F0", "#E0533D"],
+      "materials": ["vacuum ground", "steel detector rings", "signal-yellow tracks", "calorimeter energy bars", "tabular technical grotesk"],
+      "viewport": "Full-bleed near-black. Sonic sits at centre as the beamline ring; the 12 spoke chains are concentric rings outward, each arc carrying that chain's reserves. Live orderbook intents render as curved tracks arcing source-ring → hub → destination-ring. The working surface (trade form, tables) docks right in the same grammar. Tabs become detector layers, not a rail.",
+      "risk": "A concentric canvas can fight dense tabular work, and Operate mode forbids expression obscuring the task — the tables must stay real tables. WebGL/canvas at this track density has a real perf budget.",
+      "hero": "https://impeccable.style/worlds/cards/scientific-notation-particle-detector-event-display-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/scientific-notation-particle-detector-event-display.webp"
+    },
+    {
+      "id": "challenger-seven-segment",
+      "label": "Segment Mask",
+      "lineage": "seven-segment family — bedside clocks, gas-price totems, scoreboards",
+      "thesis": "Every figure in the product is a segment readout, and the unlit ghost segments are designed as deliberately as the lit ones.",
+      "case": "Fuses strongly: this audience lives on numeric readouts, and the price-totem/scoreboard lineage sidesteps Bloomberg cosplay cleanly. Costs: labels and forms need a second face, and its native law — instant segment swap, nothing slides — argues against the motion-forward brief you just picked.",
+      "viewport": "A rigid mask of cells. Price totem stack for the market summary, four-digit readouts for health factor and APY, ghost cells holding every empty slot.",
+      "risk": "A whole UI of segment glyphs is unreadable for prose and form labels; the mask only carries numbers.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-seven-segment-alarm-clock-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/signals-instruments-seven-segment-alarm-clock.webp"
+    },
+    {
+      "id": "challenger-cyclorama",
+      "label": "Cyclorama",
+      "lineage": "theatre cyclorama lighting — black night through cobalt and rose into white day",
+      "thesis": "Market state is light state: the surface moves from depthless black through cobalt to full day as activity rises.",
+      "case": "Fuses partly. The horizon-band composition is a genuinely fresh layout law for a dashboard and the cue-timeline maps to intent lifecycle. But it makes colour the sole carrier of state, which this product's own accessibility rule forbids, and PRODUCT.md warns against mood outranking data.",
+      "viewport": "Content held in horizontal horizon bands stacked dark to light, lighting-plot stencil caps for labels, tabular numerals throughout.",
+      "risk": "State-as-light needs a redundant non-colour signal bolted on, which is exactly where the concept starts to leak.",
+      "hero": "https://impeccable.style/worlds/cards/stagecraft-theater-lighting-cyclorama-dawn-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/stagecraft-theater-lighting-cyclorama-dawn.webp"
+    },
+    {
+      "id": "challenger-lineup",
+      "label": "Billing Sheet",
+      "lineage": "festival lineup poster — hierarchy by size and line break alone, no imagery",
+      "thesis": "One face at eight sizes; magnitude is the only structure, so the biggest number on screen is the one that matters most.",
+      "case": "Fuses poorly for the core task. Size-as-billing ranks 26 reserves by APY beautifully and would make a striking Earn screen — but a swap form is not a billing, and a terminal shows many simultaneous values rather than one ranked descent. It solves a quarter of the product.",
+      "viewport": "One condensed face, saturated ground, single contrasting ink, long tail justified into a dense block at the foot.",
+      "risk": "Trade and Portfolio have no honest mapping; you'd be running two design systems.",
+      "hero": "https://impeccable.style/worlds/cards/posters-covers-sleeves-festival-lineup-poster-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/posters-covers-sleeves-festival-lineup-poster.webp"
+    }
+  ],
+  "reroll": true,
+  "steer": true,
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "The dark DeFi dashboard every competitor ships — stat-card row, centred swap card, one accent — executed at a craft level none of them reach.",
+    "viewport": "Stat row across the top, swap card centred, reserve table below, wallet pill top-right.",
+    "risk": "Indistinguishable from the category in a screenshot, which is the one thing the launch content needs it not to be."
+  }
+}

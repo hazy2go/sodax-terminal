@@ -1,9 +1,9 @@
 import type { XToken, SpokeChainKey, ChainType } from '@sodax/types';
 import { ChainKeys } from '@sodax/types';
-import { CHAIN_NAMES, isTokenAllowed } from './config';
+import { WALLET_CHAINS, isTokenAllowed } from './config';
 
 /** Chains this terminal trades on — the EVM set + Solana (matches mounted wallets). */
-export const TRADE_CHAINS = Object.keys(CHAIN_NAMES) as SpokeChainKey[];
+export const TRADE_CHAINS = WALLET_CHAINS as readonly string[] as SpokeChainKey[];
 
 export function chainTypeOf(chainKey: SpokeChainKey): ChainType {
   return chainKey === ChainKeys.SOLANA_MAINNET ? 'SOLANA' : 'EVM';
@@ -34,4 +34,10 @@ export function xStocksFrom(tokens: XToken[]): XToken[] {
 
 export function tokenKey(t: XToken): string {
   return `${t.address}-${t.chainKey}`;
+}
+
+/** Official token logo from the SODAX assets package, named by slugified symbol. */
+export function tokenLogo(symbol: string): string {
+  const slug = symbol.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  return `https://raw.githubusercontent.com/icon-project/sodax-sdks/main/packages/assets/token/${slug}.png`;
 }
