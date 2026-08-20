@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { animate, type JSAnimation } from 'animejs';
 import { useBackendOrderbook, useSodaxContext } from '@sodax/dapp-kit';
+import { ORDERBOOK_LIMIT } from '@/components/detector/Detector';
 import { chainName, isTokenAllowed } from '@/lib/config';
 import { cleanSymbol, fmtAmount } from '@/lib/format';
 import { Badge } from '@/components/ui/badge';
@@ -13,8 +14,9 @@ import { Badge } from '@/components/ui/badge';
  */
 export function FillsTape() {
   const { sodax } = useSodaxContext();
+  // Same params as the Detector, so React Query serves both from one request.
   const { data: orderbook } = useBackendOrderbook({
-    params: { pagination: { offset: '0', limit: '24' } },
+    params: { pagination: { offset: '0', limit: ORDERBOOK_LIMIT } },
   });
   const stripRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<JSAnimation | null>(null);
@@ -43,7 +45,8 @@ export function FillsTape() {
           symbol: sym,
         };
       })
-      .filter((x): x is NonNullable<typeof x> => x !== null);
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+      .slice(0, 24);
   }, [orderbook, sodax]);
 
   // The tape's native motion: a continuous crawl, distance-proportional so the

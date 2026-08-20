@@ -30,6 +30,12 @@ const INK = '#e6ecf3';
 const MUTED = '#93a1b3';
 const CARD = '#070a0e';
 
+/** Backend caps out well above the live book; one call returns everything. */
+export const ORDERBOOK_LIMIT = '500';
+/** Most routes drawn. Beyond this the ring reads as spaghetti, so we take the
+ *  busiest and say how many were left out rather than silently truncating. */
+const MAX_ROUTES = 60;
+
 const R = 100; // ring radius in chart space
 const EXTENT = 152; // axis half-extent; keeps the ring clear of the legend
 
@@ -52,8 +58,12 @@ type ChainPoint = {
 export function Detector() {
   const { sodax } = useSodaxContext();
   const { data: reserves } = useReservesUsdFormat();
+  // The whole orderbook, not a sample. At limit 40 the chart drew 3 of the 65
+  // live routes and claimed to be showing the orderbook. The backend returns
+  // the full set in one call, and the same query key is reused by FillsTape so
+  // this is still a single request.
   const { data: orderbook } = useBackendOrderbook({
-    params: { pagination: { offset: '0', limit: '40' } },
+    params: { pagination: { offset: '0', limit: ORDERBOOK_LIMIT } },
   });
   const { route } = useFocus();
 
@@ -96,13 +106,21 @@ export function Detector() {
     const pairs = new Map<string, { from: string; to: string; count: number }>();
     const activity = new Map<string, number>();
     let hubLocal = 0;
+    let unresolved = 0;
 
     for (const o of orderbook?.data ?? []) {
       const s = resolve(sodax, o.intentData.srcChain);
       const t = resolve(sodax, o.intentData.dstChain);
-      if (!s || !t) continue;
+      if (!s || !t) {
+        unresolved += 1;
+        continue;
+      }
       const token = sodax.config.getXTokenFromHubAsset(o.intentData.inputToken);
-      if (!token || !isTokenAllowed(cleanSymbol(token.symbol))) continue;
+      if (!token) {
+        unresolved += 1;
+        continue;
+      }
+      if (!isTokenAllowed(cleanSymbol(token.symbol))) continue;
 
       if (s === t) {
         hubLocal += 1;
@@ -167,8 +185,12 @@ export function Detector() {
       label: { position: 'right', color: INK },
     };
 
-    // one animated line per live route
-    const flows = [...pairs.values()].map(p => ({
+    // one animated line per live route, busiest first
+    const ranked = [...pairs.values()].sort((a, b) => b.count - a.count);
+    const shown = ranked.slice(0, MAX_ROUTES);
+    const hiddenRoutes = ranked.length - shown.length;
+
+    const flows = shown.map(p => ({
       coords: [pos.get(p.from) ?? [0, 0], pos.get(p.to) ?? [0, 0]],
       value: p.count,
       from: p.from,
@@ -187,6 +209,11 @@ export function Detector() {
       hub,
       flows,
       hubLocal,
+      unresolved,
+      hiddenRoutes,
+      routeCount: ranked.length,
+      counted: (orderbook?.data.length ?? 0) - unresolved,
+      total: orderbook?.total ?? 0,
       totalReach: [...reach.values()].reduce((s, r) => s + r.usd, 0),
     };
   }, [reserves, orderbook, sodax, spokes, route]);
@@ -244,10 +271,12 @@ export function Detector() {
           z: 2,
           effect: {
             show: !reduceMotion,
-            period: 4,
+            period: 4.5,
+            // staggered, so sixty routes read as traffic rather than a metronome
+            delay: (idx: number) => (idx % 9) * 500,
             trailLength: 0.42,
             symbol: 'circle',
-            symbolSize: 3.4,
+            symbolSize: 3,
             loop: true,
           },
           lineStyle: { width: 0, opacity: 0 },
@@ -337,9 +366,17 @@ export function Detector() {
         <LegendRow swatch={<span className="size-2.5 rounded-full bg-track" />}>
           Sonic, the hub every route settles through
         </LegendRow>
-        <div className="fig pt-1 text-[11px] text-muted-foreground">
-          {fmtUsd(model.totalReach, { compact: true })} reachable, {model.flows.length}{' '}
-          cross-chain{model.hubLocal > 0 && `, ${model.hubLocal} on-hub`}
+        <div className="fig space-y-0.5 pt-1 text-[11px] text-muted-foreground">
+          <div>
+            {model.counted} of {model.total} open intents, {model.hubLocal} settling
+            on-hub
+          </div>
+          <div>
+            {model.routeCount} cross-chain routes
+            {model.hiddenRoutes > 0 && `, ${model.hiddenRoutes} not drawn`}
+            {model.unresolved > 0 && `, ${model.unresolved} unreadable`}
+          </div>
+          <div>{fmtUsd(model.totalReach, { compact: true })} reachable liquidity</div>
         </div>
       </div>
     </div>
