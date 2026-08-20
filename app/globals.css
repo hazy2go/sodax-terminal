@@ -282,21 +282,22 @@ input.amount {
 
 .grid-ring {
   fill: none;
-  stroke: var(--ring-dim);
-  stroke-width: 1;
-  stroke-dasharray: 2 5;
+  stroke: var(--ring);
+  stroke-width: 1.1;
+  stroke-dasharray: 3 6;
+  opacity: 0.75;
   transform-box: fill-box;
   transform-origin: center;
 }
 
 .grid-label {
   font-family: var(--font-data);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.06em;
-  fill: var(--faint);
+  fill: var(--text-steel);
   paint-order: stroke;
   stroke: var(--vacuum);
-  stroke-width: 3px;
+  stroke-width: 3.5px;
   stroke-linejoin: round;
 }
 
@@ -307,7 +308,7 @@ input.amount {
 
 .sector-label {
   font-family: var(--font-data);
-  font-size: 9.5px;
+  font-size: 10.5px;
   letter-spacing: 0.1em;
   fill: var(--text-steel);
   text-transform: uppercase;
@@ -319,8 +320,8 @@ input.amount {
 
 /* one bar per asset — length is supplied liquidity on the shared log axis */
 .calo {
-  stroke: color-mix(in srgb, var(--energy) 66%, transparent);
-  stroke-width: 12;
+  stroke: color-mix(in srgb, var(--energy) 62%, transparent);
+  stroke-width: 14;
   stroke-linecap: butt;
   transition: stroke 140ms var(--ease-out);
 }
@@ -354,6 +355,24 @@ input.amount {
   stroke-width: 0.6;
   opacity: 0.35;
   stroke-dasharray: 2 4;
+}
+
+.hub-tick {
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-width 140ms var(--ease-out);
+}
+
+.hub-tick.y {
+  stroke: var(--track-yellow);
+}
+
+.hub-tick.c {
+  stroke: var(--track-cyan);
+}
+
+.hub-tick:hover {
+  stroke-width: 5;
 }
 
 .track-cap {

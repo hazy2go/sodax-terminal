@@ -22,7 +22,7 @@ import {
   sector,
   arcPath,
   trackPath,
-  hubLoopPath,
+  hubTick,
   angleFromHash,
 } from './geometry';
 import { useFocus } from './focus';
@@ -43,7 +43,8 @@ type Bar = {
 
 type Track = {
   key: string;
-  d: string;
+  d: string | null;
+  tick: { x1: number; y1: number; x2: number; y2: number } | null;
   tone: 'y' | 'c';
   from: string;
   to: string;
@@ -151,9 +152,10 @@ export function Detector() {
       out.push({
         key: hash,
         end: hubLocal ? null : polar(dstR, dst.deg),
-        d: hubLocal
-          ? hubLoopPath(angleFromHash(hash, 360), Math.sqrt(remaining) / 30)
-          : trackPath(src.deg, dst.deg, srcR, dstR),
+        tick: hubLocal
+          ? hubTick(angleFromHash(hash, 360), Math.sqrt(remaining) / 26)
+          : null,
+        d: hubLocal ? null : trackPath(src.deg, dst.deg, srcR, dstR),
         tone: angleFromHash(hash + 'tone', 2) < 1 ? 'y' : 'c',
         from: src.name,
         to: dst.name,
@@ -325,7 +327,8 @@ export function Detector() {
 
         {/* live intents */}
         <g>
-          {tracks.map(t => (
+          {tracks.map(t =>
+            t.d ? (
             <path
               key={t.key}
               className={`intent-track js-track ${t.tone}`}
@@ -343,7 +346,29 @@ export function Detector() {
               }
               onMouseLeave={() => setCallout(null)}
             />
-          ))}
+            ) : (
+              <line
+                key={t.key}
+                className={`hub-tick js-track ${t.tone}`}
+                x1={t.tick!.x1}
+                y1={t.tick!.y1}
+                x2={t.tick!.x2}
+                y2={t.tick!.y2}
+                onMouseEnter={() =>
+                  setCallout({
+                    x: 58,
+                    y: 10,
+                    rows: [
+                      ['route', `${t.from} → ${t.to}`],
+                      ['remaining', t.amount],
+                      ['state', 'open · stays on hub'],
+                    ],
+                  })
+                }
+                onMouseLeave={() => setCallout(null)}
+              />
+            ),
+          )}
           {tracks.map(t =>
             t.end ? (
               <circle
@@ -369,7 +394,7 @@ export function Detector() {
         <g>
           {spokes.map((chainKey, i) => {
             const s = sector(i, spokes.length);
-            const p = polar(R_OUTER + 16, s.mid);
+            const p = polar(R_OUTER + 13, s.mid);
             const flip = s.mid > 180;
             const lit = route
               ? chainKey === route.srcChainKey || chainKey === route.dstChainKey
@@ -444,9 +469,11 @@ export function Detector() {
           </div>
           <div className="legend-row">
             <svg width="24" height="12" viewBox="0 0 24 12">
-              <path d="M4 6C4 1 12 1 12 6C12 11 4 11 4 6" stroke="var(--track-cyan)" strokeWidth="1.5" fill="none" />
+              <line x1="4" y1="10" x2="4" y2="4" stroke="var(--track-cyan)" strokeWidth="2" />
+              <line x1="9" y1="10" x2="9" y2="1" stroke="var(--track-yellow)" strokeWidth="2" />
+              <line x1="14" y1="10" x2="14" y2="6" stroke="var(--track-cyan)" strokeWidth="2" />
             </svg>
-            <span>A loop — a swap that stays on the hub</span>
+            <span>Ticks at the core — swaps that stay on the hub</span>
           </div>
         </div>
       )}

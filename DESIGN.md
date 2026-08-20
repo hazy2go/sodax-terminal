@@ -96,8 +96,11 @@ legend names all four.
 - **The concentric rings are the value axis**, fitted to the data and labelled at
   each decade. A hard-coded domain saturated every wedge at full length.
 - **Tracks are real open intents**, arcing from their source sector through the
-  beamline core to their destination, terminating in a visible dot. Hub-local
-  (Sonic→Sonic) intents loop off the core, sized by remaining amount.
+  beamline core to their destination, terminating in a visible dot.
+- **Hub-local (Sonic→Sonic) intents are radial ticks** in the band between the
+  core and the wedge axis, length by remaining amount. They were curved loops,
+  but eighteen of them overlapping in a thin annulus read as scribble; ticks of
+  differing length read as a bar chart of what is queued at the hub.
 - **The composed route** from the trade form lights as a thicker track, dashed
   while quoting and solid once the quote lands. Form and diagram are one surface.
 - Sonic is the core, showing total supplied.

@@ -11,19 +11,22 @@
  * viewBox, so the maths never depends on rendered pixel size.
  */
 
-export const BOX_W = 1180;
-export const BOX_H = 1000;
-export const CX = 520;
-export const CY = 500;
+export const BOX_W = 1046;
+export const BOX_H = 986;
+export const CX = 523;
+export const CY = 493;
 
-export const CORE_R = 52;
+export const CORE_R = 74;
 
 /** Sonic is the beamline at the centre, not a sector. */
 export const HUB = -1;
 
 /** Radial value axis. */
-export const R_INNER = 96;
-export const R_OUTER = 430;
+/** The hub band sits between the core and the wedge axis: hub-local intents
+ *  live here, and it needs real depth or they collapse into scribble. */
+export const R_HUB_BAND = 78;
+export const R_INNER = CORE_R + R_HUB_BAND;
+export const R_OUTER = 392;
 
 /**
  * The value axis is fitted to the data, not hard-coded. A fixed $10–$1M domain
@@ -95,15 +98,20 @@ export function trackPath(srcDeg: number, dstDeg: number, srcR: number, dstR: nu
   ].join(' ');
 }
 
-/** A hub-local intent — input and output both settle on Sonic, so it loops. */
-export function hubLoopPath(deg: number, reach = 1): string {
-  const a = polar(CORE_R + 3, deg - 5);
-  const b = polar(CORE_R + 3, deg + 5);
-  const out = polar(CORE_R + 14 + 30 * Math.max(0.1, Math.min(1, reach)), deg);
-  return [
-    `M ${a.x.toFixed(2)} ${a.y.toFixed(2)}`,
-    `Q ${out.x.toFixed(2)} ${out.y.toFixed(2)} ${b.x.toFixed(2)} ${b.y.toFixed(2)}`,
-  ].join(' ');
+/**
+ * A hub-local intent — input and output both settle on Sonic, so it never
+ * leaves the beamline. Drawn as a radial tick in the hub band rather than as a
+ * looping curve: eighteen overlapping loops in a thin annulus read as scribble,
+ * whereas ticks of differing length read as a bar chart of what is queued.
+ */
+export function hubTick(
+  deg: number,
+  reach = 1,
+): { x1: number; y1: number; x2: number; y2: number } {
+  const t = Math.max(0.12, Math.min(1, reach));
+  const a = polar(CORE_R + 7, deg);
+  const b = polar(CORE_R + 7 + (R_HUB_BAND - 18) * t, deg);
+  return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
 }
 
 /** Stable pseudo-value from a hash, so a mark never jumps between renders. */
