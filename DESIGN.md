@@ -79,31 +79,46 @@ Below 700px controls shrink below their label min-content; below 520px the strip
 drop. Spacing scale 4 / 6 / 8 / 12 / 14 / 22. Radius: 0 everywhere — the world is ruled,
 not rounded.
 
-## The detector
+## Stack
 
-A polar bar chart, not an illustration. Every mark encodes a value and the
-legend names all four.
+The interface is built on libraries, not hand-rolled CSS. This replaced ~2,500
+lines of bespoke stylesheet, DIY dropdown/modal/picker and hand-drawn SVG, which
+is what made the first build read as amateur however carefully it was tuned.
 
-- **Sectors, not rings, are chains.** Each of the 20 supported spoke chains owns
-  an angular sector with its name set on its own angle. Chains were originally
-  concentric rings, but bars then had only the ring gap to grow into, so every
-  bar crossed its neighbours and the field read as debris.
-- **One wedge per chain**, length = the total money-market liquidity that chain
-  can reach, summed over the assets it supports. Drawing a bar per asset instead
-  repeated the same protocol-wide figures in all 20 sectors — 103 marks encoding
-  the same handful of numbers, in a radially symmetric starburst that said
-  nothing.
-- **The concentric rings are the value axis**, fitted to the data and labelled at
-  each decade. A hard-coded domain saturated every wedge at full length.
-- **Tracks are real open intents**, arcing from their source sector through the
-  beamline core to their destination, terminating in a visible dot.
-- **Hub-local (Sonic→Sonic) intents are radial ticks** in the band between the
-  core and the wedge axis, length by remaining amount. They were curved loops,
-  but eighteen of them overlapping in a thin annulus read as scribble; ticks of
-  differing length read as a bar chart of what is queued at the hub.
-- **The composed route** from the trade form lights as a thicker track, dashed
-  while quoting and solid once the quote lands. Form and diagram are one surface.
-- Sonic is the core, showing total supplied.
+- **Tailwind v4** for all styling. The palette below lives in `@theme inline`, so
+  every primitive inherits it without per-component overrides.
+- **shadcn/ui on Base UI** for primitives — Dialog, Popover, Command,
+  DropdownMenu, Select, Tabs, Table, Tooltip, ScrollArea. These own focus traps,
+  portalling and keyboard semantics. Base UI composes via a `render` prop, not
+  Radix's `asChild`.
+- **TanStack Table** (its `legacy` entry point) for the sortable reserve grid.
+- **ECharts 6** for the graph. Real tooltip engine, animation, and
+  adjacency focus, none of which a hand-drawn SVG was going to match.
+- **Lucide** for icons, at `size-[18px]`, stroke 1.5.
+
+Use the primitives. A raw `<div>` standing in for a Popover, or a bespoke
+stylesheet block where a token exists, is a regression.
+
+## The graph
+
+The hub and its spokes as an ECharts network graph — the canonical visual for
+flow between entities.
+
+- **Nodes are chains.** Size is the money-market liquidity that chain can reach,
+  summed over the assets it supports; opacity tracks the same value so the
+  ranking reads without hovering. Sonic is the hub, drawn larger with the accent
+  ring.
+- **Edges are live cross-chain intents**, aggregated per chain pair and weighted
+  by count.
+- **Hub-local (Sonic→Sonic) intents** are the bulk of the orderbook and are
+  reported as a count rather than drawn, since a self-loop carries no direction.
+- **Hovering a chain focuses its own flows** and blurs the rest — ECharts
+  adjacency focus, free with the library.
+
+Earlier passes drew this by hand: first as concentric rings with per-asset bars
+(103 marks encoding the same dozen protocol-wide numbers, in a radially
+symmetric starburst that said nothing), then as chain sectors with one wedge
+each. Both were legible only after being explained, which is the tell.
 
 ## Motion
 
@@ -119,15 +134,16 @@ entirely, the crawl does not start, and all transitions collapse to instant.
 
 ## Components
 
-- **Buttons** — primary is a yellow fill with vacuum ink; secondary is a hairline outline.
-  A disabled button never carries a "connect wallet" label; that prompt is a hint beneath it.
-- **Inputs** — vacuum fill, hairline border, ring-blue on focus-within.
-- **Readouts** — label, dotted leader, right-aligned tabular value.
-- **Tables** — sticky mono headers, hairline rows, right-aligned figures, hover on
-  `--steel`, capped at 46vh inside a section so no row is ever half-cut.
-- **Badges** — hairline outline plus semantic text, never a solid fill.
-- **Icons** — authored SVG on a 16px grid at 1.25 stroke, drawn in the world's grammar
-  (concentric arcs, crossing tracks, radial ticks). No unicode glyphs, no icon library.
+- **Buttons** — shadcn `Button`. Primary is the accent fill with vacuum ink. The
+  disabled state is explicitly re-styled to `bg-secondary`: a 50%-opacity yellow
+  on a dark ground reads as muddy olive, not as unavailable. A disabled button
+  never carries a "connect wallet" label; that prompt is a `Note` beneath it.
+- **Readouts** — label, dotted leader, right-aligned tabular value (`Readout`).
+- **Tables** — shadcn `Table`, `label-micro` heads, `fig` cells, tight `px-2`
+  gutters so five columns fit the 400px rail.
+- **Badges** — outline plus semantic text, never a solid fill.
+- **Micro-labels** — the `.label-micro` component class: 10px mono, uppercase,
+  0.1em tracking. **Figures** — the `.fig` class, mono with tabular numerals.
 
 ## Never
 

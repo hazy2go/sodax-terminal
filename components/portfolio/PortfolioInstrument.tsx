@@ -19,6 +19,17 @@ import { chainName, isTokenAllowed } from '@/lib/config';
 import { TRADE_CHAINS, chainTypeOf } from '@/lib/tokens';
 import { cleanSymbol, fmtUsd, shortAddr } from '@/lib/format';
 import { TokenMark } from '@/components/trade/TokenPicker';
+import { InstrumentHeader, InstrumentBody, Section, Readout, Note } from '@/components/instrument';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 function useSymbolPrices(): Map<string, number> {
   const { data: reserves } = useReservesUsdFormat();
@@ -72,19 +83,21 @@ function ChainBalances({
   return (
     <>
       {rows.map(r => (
-        <tr key={`${r.token.address}-${chainKey}`}>
-          <td>
-            <span className="asset-cell">
+        <TableRow key={`${r.token.address}-${chainKey}`}>
+          <TableCell className="fig py-1.5">
+            <span className="flex items-center gap-2">
               <TokenMark token={r.token} size={15} />
               {r.token.symbol}
             </span>
-          </td>
-          <td className="muted">{chainName(chainKey)}</td>
-          <td className="r">
+          </TableCell>
+          <TableCell className="py-1.5 text-muted-foreground">{chainName(chainKey)}</TableCell>
+          <TableCell className="fig py-1.5 text-right">
             {r.amount.toLocaleString('en-US', { maximumFractionDigits: 5 })}
-          </td>
-          <td className="r">{r.usd !== null ? fmtUsd(r.usd, { compact: true }) : '—'}</td>
-        </tr>
+          </TableCell>
+          <TableCell className="fig py-1.5 text-right">
+            {r.usd !== null ? fmtUsd(r.usd, { compact: true }) : '—'}
+          </TableCell>
+        </TableRow>
       ))}
     </>
   );
@@ -222,15 +235,13 @@ export function PortfolioInstrument() {
   if (!connected) {
     return (
       <>
-        <div className="instr-head">
-          <h1 className="instr-title">Portfolio</h1>
-        </div>
-        <div className="instr-body">
-          <p className="note">
+        <InstrumentHeader title="Portfolio" />
+        <InstrumentBody>
+          <Note>
             Connect a wallet to see balances, open orders and your money-market position.
-            The detector keeps running either way.
-          </p>
-        </div>
+            The graph keeps running either way.
+          </Note>
+        </InstrumentBody>
       </>
     );
   }
@@ -246,158 +257,137 @@ export function PortfolioInstrument() {
         );
       })}
 
-      <div className="instr-head">
-        <h1 className="instr-title">Portfolio</h1>
+      <InstrumentHeader title="Portfolio">
         {summary && (
-          <span
-            className={`badge ${
+          <Badge
+            variant="outline"
+            className={
               !hasDebt
-                ? 'badge-up'
+                ? 'border-viable/50 text-viable'
                 : hfRaw! < 1.1
-                  ? 'badge-down'
+                  ? 'border-destructive/50 text-destructive'
                   : hfRaw! < 1.5
-                    ? 'badge-warn'
-                    : 'badge-up'
-            }`}
+                    ? 'border-primary/50 text-primary'
+                    : 'border-viable/50 text-viable'
+            }
           >
             {hasDebt ? `HF ${hfRaw!.toFixed(2)}` : 'No debt'}
-          </span>
+          </Badge>
         )}
-      </div>
+      </InstrumentHeader>
 
-      <div className="instr-body">
-        <dl className="readout">
-          <Row k="Collateral" v={summary ? fmtUsd(summary.totalCollateralUSD) : '—'} />
-          <Row k="Debt" v={summary ? fmtUsd(summary.totalBorrowsUSD) : '—'} />
-          <Row k="Borrow power" v={summary ? fmtUsd(summary.availableBorrowsUSD) : '—'} />
-          <Row k="Net worth" v={summary ? fmtUsd(summary.netWorthUSD) : '—'} />
+      <InstrumentBody>
+        <dl className="flex flex-col gap-1.5">
+          <Readout k="Collateral" v={summary ? fmtUsd(summary.totalCollateralUSD) : '—'} />
+          <Readout k="Debt" v={summary ? fmtUsd(summary.totalBorrowsUSD) : '—'} />
+          <Readout k="Borrow power" v={summary ? fmtUsd(summary.availableBorrowsUSD) : '—'} />
+          <Readout k="Net worth" v={summary ? fmtUsd(summary.netWorthUSD) : '—'} />
         </dl>
-      </div>
+      </InstrumentBody>
 
-      <div className="instr-section">
-        <div className="instr-head">
-          <h2 className="instr-title">Balances</h2>
-        </div>
-        <div className="table-wrap">
-          <table className="data">
-            <thead>
-              <tr>
-                <th scope="col">Token</th>
-                <th scope="col">Chain</th>
-                <th scope="col" className="r">
-                  Amount
-                </th>
-                <th scope="col" className="r">
-                  Value
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {TRADE_CHAINS.map(ck => (
-                <ChainBalances key={ck} chainKey={ck} prices={prices} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Section>
+        <InstrumentHeader as="h2" title="Balances" />
+        <Table className="text-xs">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="label-micro h-8">Token</TableHead>
+              <TableHead className="label-micro h-8">Chain</TableHead>
+              <TableHead className="label-micro h-8 text-right">Amount</TableHead>
+              <TableHead className="label-micro h-8 text-right">Value</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {TRADE_CHAINS.map(ck => (
+              <ChainBalances key={ck} chainKey={ck} prices={prices} />
+            ))}
+          </TableBody>
+        </Table>
+      </Section>
 
-      <div className="instr-section">
-        <div className="instr-head">
-          <h2 className="instr-title">Open orders</h2>
-          <span className="badge badge-neutral">{open.length}</span>
-        </div>
-        <div className="table-wrap">
-          <table className="data">
-            <thead>
-              <tr>
-                <th scope="col">Intent</th>
-                <th scope="col" className="r">
-                  Block
-                </th>
-                <th scope="col" className="r" aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {open.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="muted">
-                    No open orders.
-                  </td>
-                </tr>
-              )}
-              {open.map(o => (
-                <tr key={o.intentHash}>
-                  <td>{shortAddr(o.intentHash)}</td>
-                  <td className="r muted">{o.blockNumber}</td>
-                  <td className="r">
-                    <button
-                      className="btn btn-row"
-                      disabled={isCancelling}
-                      onClick={() => cancel(o)}
-                    >
-                      Cancel
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <Section>
+        <InstrumentHeader as="h2" title="Open orders">
+          <Badge variant="outline">{open.length}</Badge>
+        </InstrumentHeader>
+        <Table className="text-xs">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="label-micro h-8">Intent</TableHead>
+              <TableHead className="label-micro h-8 text-right">Block</TableHead>
+              <TableHead className="h-8" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {open.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} className="py-3 text-center text-muted-foreground">
+                  No open orders.
+                </TableCell>
+              </TableRow>
+            )}
+            {open.map(o => (
+              <TableRow key={o.intentHash}>
+                <TableCell className="fig py-1.5">{shortAddr(o.intentHash)}</TableCell>
+                <TableCell className="fig py-1.5 text-right text-muted-foreground">
+                  {o.blockNumber}
+                </TableCell>
+                <TableCell className="py-1.5 text-right">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="label-micro h-6 px-2"
+                    disabled={isCancelling}
+                    onClick={() => cancel(o)}
+                  >
+                    Cancel
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
         {error && (
-          <p className="alert" style={{ margin: 14 }} role="alert">
-            {error}
-          </p>
+          <div className="p-3.5">
+            <p role="alert" className="border border-destructive/45 p-2 text-[11px] text-destructive">
+              {error}
+            </p>
+          </div>
         )}
-      </div>
+      </Section>
 
-      <div className="instr-section">
-        <div className="instr-head">
-          <h2 className="instr-title">Recent</h2>
-        </div>
-        <div className="table-wrap">
-          <table className="data">
-            <thead>
-              <tr>
-                <th scope="col">Intent</th>
-                <th scope="col">Tx</th>
-                <th scope="col" className="r">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="muted">
-                    No past intents.
-                  </td>
-                </tr>
-              )}
-              {history.map(h => (
-                <tr key={h.intentHash}>
-                  <td>{shortAddr(h.intentHash)}</td>
-                  <td className="muted">{shortAddr(h.txHash)}</td>
-                  <td className="r">
-                    {/* The list endpoint reports open/closed only — it can't tell
-                        a fill from a cancellation or an expiry, so don't claim one. */}
-                    <span className="badge badge-neutral">Closed</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Section>
+        <InstrumentHeader as="h2" title="Recent" />
+        <Table className="text-xs">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="label-micro h-8">Intent</TableHead>
+              <TableHead className="label-micro h-8">Tx</TableHead>
+              <TableHead className="label-micro h-8 text-right">Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {history.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} className="py-3 text-center text-muted-foreground">
+                  No past intents.
+                </TableCell>
+              </TableRow>
+            )}
+            {history.map(h => (
+              <TableRow key={h.intentHash}>
+                <TableCell className="fig py-1.5">{shortAddr(h.intentHash)}</TableCell>
+                <TableCell className="fig py-1.5 text-muted-foreground">
+                  {shortAddr(h.txHash)}
+                </TableCell>
+                <TableCell className="py-1.5 text-right">
+                  {/* The list endpoint reports open/closed only — it can't tell a
+                      fill from a cancellation or an expiry, so don't claim one. */}
+                  <Badge variant="outline">Closed</Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Section>
     </>
-  );
-}
-
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="readout-row">
-      <dt>{k}</dt>
-      <span className="rule" />
-      <dd>{v}</dd>
-    </div>
   );
 }

@@ -16,6 +16,10 @@ import { useWalletProvider, useXAccount } from '@sodax/wallet-sdk-react';
 import { ChainKeys } from '@sodax/types';
 import type { Address } from '@sodax/types';
 import { parseUnits, formatUnits } from 'viem';
+import { InstrumentHeader, InstrumentBody, Readout, FieldLabel, Note, ErrorNote } from '@/components/instrument';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // SODA staking runs from the hub chain (Sonic) in this terminal.
 const STAKE_CHAIN = ChainKeys.SONIC_MAINNET;
@@ -153,50 +157,39 @@ export function StakingPanel() {
 
   return (
     <section>
-      <div className="instr-head">
-        <h2 className="instr-title">Stake SODA</h2>
-        <span className="badge badge-neutral">xSODA vault</span>
-      </div>
-      <div className="instr-body">
-        <dl className="readout">
-          <Row k="Total staked" v={info ? `${fmtSoda(info.totalStaked)} SODA` : '—'} />
-          <Row k="Your xSODA" v={info && srcAddress ? fmtSoda(info.userXSodaBalance) : '—'} />
-          <Row
+      <InstrumentHeader as="h2" title="Stake SODA">
+        <Badge variant="outline">xSODA vault</Badge>
+      </InstrumentHeader>
+
+      <InstrumentBody>
+        <dl className="flex flex-col gap-1.5">
+          <Readout k="Total staked" v={info ? `${fmtSoda(info.totalStaked)} SODA` : '—'} />
+          <Readout k="Your xSODA" v={info && srcAddress ? fmtSoda(info.userXSodaBalance) : '—'} />
+          <Readout
             k="Your value"
             v={info && srcAddress ? `${fmtSoda(info.userXSodaValue)} SODA` : '—'}
           />
-          <Row
+          <Readout
             k="Unstaking period"
             v={unstakeDays !== null ? `${unstakeDays.toFixed(0)} days` : '—'}
           />
         </dl>
 
-        <div className="seg" role="tablist" aria-label="Staking action">
-          {(['stake', 'unstake'] as const).map(t => (
-            <button
-              key={t}
-              role="tab"
-              aria-selected={tab === t}
-              className="seg-btn"
-              onClick={() => {
-                setTab(t);
-                setError(null);
-                setDone(null);
-              }}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        <Tabs value={tab} onValueChange={t => { setTab(t as 'stake' | 'unstake'); setError(null); setDone(null); }}>
+          <TabsList className="w-full">
+            <TabsTrigger value="stake" className="flex-1">Stake</TabsTrigger>
+            <TabsTrigger value="unstake" className="flex-1">Unstake</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-        <div className="field">
-          <label className="label" htmlFor="stake-amount">
+        <div className="flex flex-col gap-1.5">
+          <FieldLabel htmlFor="stake-amount">
             {tab === 'stake' ? 'SODA amount' : 'xSODA amount'}
-          </label>
-          <div className="field-row">
+          </FieldLabel>
+          <div className="flex items-stretch border border-input bg-background focus-within:border-ring">
             <input
               id="stake-amount"
-              className="amount"
+              className="fig min-w-0 flex-1 bg-transparent px-3 py-2.5 text-[17px] outline-none placeholder:text-muted-foreground"
               inputMode="decimal"
               placeholder="0.0"
               value={amount}
@@ -204,65 +197,48 @@ export function StakingPanel() {
             />
           </div>
           {tab === 'stake' && ratio && parsedAmount > 0n && (
-            <span className="label">≈ {fmtSoda(ratio[0])} xSODA</span>
+            <span className="label-micro">≈ {fmtSoda(ratio[0])} xSODA</span>
           )}
         </div>
 
-        <button
-          className="btn btn-primary"
+        <Button
+          size="lg"
+          className="w-full font-semibold"
           disabled={busy || !srcAddress || parsedAmount <= 0n}
           onClick={submit}
         >
-          {busy
-            ? 'Confirming…'
-            : tab === 'stake'
-              ? 'Stake SODA'
-              : 'Request unstake'}
-        </button>
+          {busy ? 'Confirming…' : tab === 'stake' ? 'Stake SODA' : 'Request unstake'}
+        </Button>
 
-        {!srcAddress && (
-          <p className="note">Connect an EVM wallet to stake or unstake SODA.</p>
-        )}
+        {!srcAddress && <Note>Connect an EVM wallet to stake or unstake SODA.</Note>}
 
         {unstaking && unstaking.userUnstakeSodaRequests?.length > 0 && (
-          <div className="stack">
-            <span className="label">Pending unstakes</span>
+          <div className="flex flex-col gap-2">
+            <span className="label-micro">Pending unstakes</span>
             {unstaking.userUnstakeSodaRequests.map(u => (
-              <div key={u.id.toString()} className="row-between fig">
-                <span>{fmtSoda(u.request.amount)} SODA</span>
-                <button
-                  className="btn btn-row"
+              <div key={u.id.toString()} className="flex items-center justify-between gap-2">
+                <span className="fig text-xs">{fmtSoda(u.request.amount)} SODA</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="label-micro h-6 px-2"
                   disabled={busy}
                   onClick={() => claimOne(u.id, u.request.amount)}
                 >
                   Claim
-                </button>
+                </Button>
               </div>
             ))}
           </div>
         )}
 
-        {error && (
-          <p className="alert" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <ErrorNote>{error}</ErrorNote>}
         {done && (
-          <div className="receipt" role="status">
-            <span className="badge badge-up">{done}</span>
+          <div role="status" className="flex items-center gap-2 border border-viable/40 p-2">
+            <Badge variant="outline" className="border-viable/50 text-viable">{done}</Badge>
           </div>
         )}
-      </div>
+      </InstrumentBody>
     </section>
-  );
-}
-
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="readout-row">
-      <dt>{k}</dt>
-      <span className="rule" />
-      <dd>{v}</dd>
-    </div>
   );
 }

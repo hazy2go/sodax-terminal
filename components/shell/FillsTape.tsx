@@ -3,14 +3,13 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { animate, type JSAnimation } from 'animejs';
 import { useBackendOrderbook, useSodaxContext } from '@sodax/dapp-kit';
-import { ChainKeys } from '@sodax/types';
 import { chainName, isTokenAllowed } from '@/lib/config';
 import { cleanSymbol, fmtAmount } from '@/lib/format';
+import { Badge } from '@/components/ui/badge';
 
 /**
- * The running tape. These are OPEN intents streaming off the live orderbook —
- * not fills. The backend orderbook reports what is awaiting a solver, so that
- * is what the tape claims.
+ * These are OPEN intents streaming off the live orderbook — not fills. The
+ * backend reports what is awaiting a solver, so that is what the tape claims.
  */
 export function FillsTape() {
   const { sodax } = useSodaxContext();
@@ -37,21 +36,17 @@ export function FillsTape() {
         ) {
           return null;
         }
-        const src = sodax.config.getSpokeChainKeyFromIntentRelayChainId(srcId);
-        const dst = sodax.config.getSpokeChainKeyFromIntentRelayChainId(dstId);
-
         return {
           key: o.intentData.intentHash,
-          route: `${chainName(src)} → ${chainName(dst)}`,
+          route: `${chainName(sodax.config.getSpokeChainKeyFromIntentRelayChainId(srcId))} → ${chainName(sodax.config.getSpokeChainKeyFromIntentRelayChainId(dstId))}`,
           amount: fmtAmount(o.intentState.remainingInput, token.decimals),
           symbol: sym,
-          hub: src === ChainKeys.SONIC_MAINNET,
         };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);
   }, [orderbook, sodax]);
 
-  // The tape's native motion: a continuous crawl. Distance-proportional so the
+  // The tape's native motion: a continuous crawl, distance-proportional so the
   // speed stays constant however many intents are open.
   useEffect(() => {
     animRef.current?.revert();
@@ -76,21 +71,26 @@ export function FillsTape() {
   }, [items]);
 
   return (
-    <div className="tape">
-      <div className="tape-label">
-        <span className="badge badge-live">
-          <span className="dot" />
+    <div className="relative flex h-full min-w-0 items-center overflow-hidden border-t border-border bg-card">
+      <div className="z-10 flex h-full shrink-0 items-center gap-2 border-r border-border bg-card px-3">
+        <Badge variant="outline" className="gap-1.5 border-flow/45 text-flow">
+          <span className="size-1.5 rounded-full bg-flow" />
           Live
-        </span>
-        <span className="label">Open intents</span>
+        </Badge>
+        <span className="label-micro max-sm:hidden">Open intents</span>
       </div>
-      <div className="tape-strip" ref={stripRef}>
-        {items.length === 0 && <span className="tape-item muted">Awaiting orderbook…</span>}
+      <div ref={stripRef} className="flex min-w-0 items-center whitespace-nowrap">
+        {items.length === 0 && (
+          <span className="px-3 text-[10px] text-muted-foreground">Awaiting orderbook…</span>
+        )}
         {/* duplicated once so the crawl wraps seamlessly */}
         {[...items, ...items].map((it, i) => (
-          <span className="tape-item" key={`${it.key}-${i}`}>
+          <span
+            key={`${it.key}-${i}`}
+            className="fig flex shrink-0 items-center gap-2 border-r border-border px-3.5 text-[10px] text-muted-foreground"
+          >
             <span>{it.route}</span>
-            <span className="sym">
+            <span className="text-foreground">
               {it.amount} {it.symbol}
             </span>
           </span>

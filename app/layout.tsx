@@ -2,11 +2,10 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono, Archivo } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { cn } from "@/lib/utils";
 
-const geistSans = Geist({
-  variable: '--font-sans',
-  subsets: ['latin'],
-});
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const geistMono = Geist_Mono({
   variable: '--font-mono',
@@ -52,7 +51,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable}`}
+      className={cn(geistMono.variable, archivo.variable, "font-sans", geist.variable)}
     >
       <body>
         {/* Direction contract — emitted as a real HTML comment so it survives the
@@ -62,7 +61,9 @@ export default function RootLayout({
           suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: DIRECTION_CONTRACT }}
         />
-        <Providers>{children}</Providers>
+        <Providers>
+          <TooltipProvider>{children}</TooltipProvider>
+        </Providers>
       </body>
     </html>
   );

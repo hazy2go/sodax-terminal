@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import {
   useXConnectors,
   useXConnect,
@@ -11,8 +10,18 @@ import {
   type IXConnector,
 } from '@sodax/wallet-sdk-react';
 import type { ChainType } from '@sodax/types';
+import { ChevronDown, Wallet, ExternalLink } from 'lucide-react';
 import { shortAddr } from '@/lib/format';
-import { IconWallet, IconChevron } from '@/components/icons';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const SLOTS: { chainType: ChainType; label: string }[] = [
   { chainType: 'EVM', label: 'EVM' },
@@ -27,93 +36,78 @@ function WalletSlot({ chainType, label }: { chainType: ChainType; label: string 
   const { mutateAsync: connect, isPending } = useXConnect();
   const account = useXAccount({ xChainType: chainType });
   const disconnect = useXDisconnect();
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
 
   const onPick = async (connector: IXConnector) => {
-    setOpen(false);
     // Provider-managed chains resolve undefined; the account arrives via useXAccount.
     await connect(connector).catch(() => {});
   };
 
   if (account.address) {
     return (
-      <button
-        className="chip on"
-        title={`${label}: ${account.address}`}
-        onClick={() => disconnect({ xChainType: chainType })}
-      >
-        <span className="dot" />
-        {label} {shortAddr(account.address)}
-        <span className="muted">Disconnect</span>
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="outline" size="sm" className="fig gap-2 text-[11px]" />}
+        >
+          <span className="size-1.5 rounded-full bg-viable" />
+          {label} {shortAddr(account.address)}
+          <ChevronDown className="size-3 opacity-60" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel className="label-micro">
+            {label} · connected
+          </DropdownMenuLabel>
+          <DropdownMenuItem disabled className="fig text-[11px] opacity-100">
+            {shortAddr(account.address)}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => disconnect({ xChainType: chainType })}
+          >
+            Disconnect
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   }
 
   return (
-    <div className="chip-slot" ref={rootRef}>
-      <button
-        className="chip"
-        disabled={isPending}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={() => setOpen(o => !o)}
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="outline" size="sm" disabled={isPending} className="gap-2 text-[11px]" />
+        }
       >
-        <IconWallet size={13} />
+        <Wallet className="size-3.5" strokeWidth={1.5} />
         {isPending ? 'Connecting…' : `Connect ${label}`}
-        <IconChevron size={12} />
-      </button>
-      {open && (
-        <div className="chip-menu" role="menu">
-          {connectors.length === 0 && (
-            <div className="chip-item dim">No {label} wallets detected</div>
-          )}
-          {connectors.map(connector =>
-            connector.isInstalled ? (
-              <button
-                key={connector.id}
-                role="menuitem"
-                className="chip-item"
-                onClick={() => onPick(connector)}
-              >
-                {connector.icon && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={connector.icon} alt="" width={17} height={17} />
-                )}
-                {connector.name}
-              </button>
-            ) : (
-              <a
-                key={connector.id}
-                role="menuitem"
-                className="chip-item dim"
-                href={connector.installUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {connector.name} — install
-              </a>
-            ),
-          )}
-        </div>
-      )}
-    </div>
+        <ChevronDown className="size-3 opacity-60" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="label-micro">{label} wallets</DropdownMenuLabel>
+        {connectors.length === 0 && (
+          <DropdownMenuItem disabled>No {label} wallets detected</DropdownMenuItem>
+        )}
+        {connectors.map(connector =>
+          connector.isInstalled ? (
+            <DropdownMenuItem key={connector.id} onClick={() => onPick(connector)}>
+              {connector.icon && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={connector.icon} alt="" width={16} height={16} className="rounded-xs" />
+              )}
+              {connector.name}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              key={connector.id}
+              render={<a href={connector.installUrl} target="_blank" rel="noreferrer" />}
+            >
+              {connector.name}
+              <ExternalLink className="ml-auto size-3 opacity-60" />
+            </DropdownMenuItem>
+          ),
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -121,7 +115,12 @@ export function ConnectChips() {
   // Gate on persist hydration so the chips don't flicker connected/disconnected.
   const { status } = useConnectedChains();
   if (status !== 'ready') {
-    return <div style={{ width: 260 }} aria-hidden />;
+    return (
+      <div className="flex gap-2">
+        <Skeleton className="h-8 w-28" />
+        <Skeleton className="h-8 w-28" />
+      </div>
+    );
   }
 
   return (

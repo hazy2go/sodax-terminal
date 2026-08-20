@@ -6,6 +6,18 @@ import { isTokenAllowed } from '@/lib/config';
 import { cleanSymbol, fmtPct, fmtUsd } from '@/lib/format';
 import { MMSheet } from './MMSheet';
 import { StakingPanel } from './StakingPanel';
+import { InstrumentHeader, Section } from '@/components/instrument';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 export function EarnInstrument() {
   const { data: reserves, isLoading } = useReservesUsdFormat();
@@ -21,64 +33,62 @@ export function EarnInstrument() {
 
   return (
     <>
-      <div className="instr-head">
-        <h1 className="instr-title">Earn</h1>
-        <span className="badge badge-live">
-          <span className="dot" />
+      <InstrumentHeader title="Earn">
+        <Badge variant="outline" className="gap-1.5 border-flow/45 text-flow">
+          <span className="size-1.5 rounded-full bg-flow" />
           Live
-        </span>
-      </div>
+        </Badge>
+      </InstrumentHeader>
 
-      <div className="table-wrap">
-        <table className="data">
-          <caption className="sr-only">Money market reserves ranked by supply APY</caption>
-          <thead>
-            <tr>
-              <th scope="col">Asset</th>
-              <th scope="col" className="r">
-                Supply
-              </th>
-              <th scope="col" className="r">
-                Borrow
-              </th>
-              <th scope="col" className="r">
-                Supplied
-              </th>
-              <th scope="col" className="r" aria-label="Actions" />
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading && (
-              <tr>
-                <td colSpan={5} className="muted">
-                  Loading reserves…
-                </td>
-              </tr>
-            )}
-            {markets.map(r => (
-              <tr key={r.underlyingAsset}>
-                <th scope="row" style={{ fontWeight: 400, textAlign: 'left' }}>
-                  {cleanSymbol(r.symbol)}
-                </th>
-                <td className="r up">{fmtPct(r.supplyAPY)}</td>
-                <td className="r">{fmtPct(r.variableBorrowAPY)}</td>
-                <td className="r muted">
-                  {fmtUsd(r.totalLiquidityUSD, { compact: true })}
-                </td>
-                <td className="r">
-                  <button className="btn btn-row" onClick={() => setSelected(r)}>
-                    Open
-                  </button>
-                </td>
-              </tr>
+      <Table className="text-xs">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="label-micro h-8">Asset</TableHead>
+            <TableHead className="label-micro h-8 text-right">Supply</TableHead>
+            <TableHead className="label-micro h-8 text-right">Borrow</TableHead>
+            <TableHead className="label-micro h-8 text-right">Supplied</TableHead>
+            <TableHead className="h-8" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading &&
+            Array.from({ length: 6 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell colSpan={5}>
+                  <Skeleton className="h-4 w-full" />
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          {markets.map(r => (
+            <TableRow key={r.underlyingAsset}>
+              <TableCell className="fig py-1.5">{cleanSymbol(r.symbol)}</TableCell>
+              <TableCell className="fig py-1.5 text-right text-viable">
+                {fmtPct(r.supplyAPY)}
+              </TableCell>
+              <TableCell className="fig py-1.5 text-right">
+                {fmtPct(r.variableBorrowAPY)}
+              </TableCell>
+              <TableCell className="fig py-1.5 text-right text-muted-foreground">
+                {fmtUsd(r.totalLiquidityUSD, { compact: true })}
+              </TableCell>
+              <TableCell className="py-1.5 text-right">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="label-micro h-6 px-2"
+                  onClick={() => setSelected(r)}
+                >
+                  Open
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
 
-      <div className="instr-section">
+      <Section>
         <StakingPanel />
-      </div>
+      </Section>
 
       {selected && <MMSheet reserve={selected} onClose={() => setSelected(null)} />}
     </>

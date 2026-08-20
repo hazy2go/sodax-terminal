@@ -17,6 +17,17 @@ import { TokenPicker } from './TokenPicker';
 import { flattenTokens, xStocksFrom, chainTypeOf } from '@/lib/tokens';
 import { chainName } from '@/lib/config';
 import { useFocus } from '@/components/detector/focus';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  InstrumentHeader,
+  InstrumentBody,
+  Readout,
+  FieldLabel,
+  Note,
+  ErrorNote,
+} from '@/components/instrument';
 
 const SLIPPAGE_BPS = 50n; // 0.5%
 
@@ -254,48 +265,30 @@ export function TradeInstrument() {
 
   return (
     <>
-      <div className="instr-head">
-        <h1 className="instr-title">Trade</h1>
+      <InstrumentHeader title="Trade">
         {isQuoting && quotePayload && (
-          <span className="badge badge-live">
-            <span className="dot" />
+          <Badge variant="outline" className="gap-1.5 border-flow/45 text-flow">
+            <span className="size-1.5 animate-pulse rounded-full bg-flow" />
             Quoting
-          </span>
+          </Badge>
         )}
-      </div>
+      </InstrumentHeader>
 
-      <div className="instr-body">
-        <div className="seg" role="tablist" aria-label="Trade mode">
-          {(
-            [
-              ['swap', 'Swap'],
-              ['xstocks', 'xStocks'],
-              ['limit', 'Limit'],
-            ] as const
-          ).map(([m, label]) => (
-            <button
-              key={m}
-              role="tab"
-              aria-selected={mode === m}
-              className="seg-btn"
-              onClick={() => {
-                setMode(m);
-                setError(null);
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      <InstrumentBody>
+        <Tabs value={mode} onValueChange={v => { setMode(v as Mode); setError(null); }}>
+          <TabsList className="w-full">
+            <TabsTrigger value="swap" className="flex-1">Swap</TabsTrigger>
+            <TabsTrigger value="xstocks" className="flex-1">xStocks</TabsTrigger>
+            <TabsTrigger value="limit" className="flex-1">Limit</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-        <div className="field">
-          <label className="label" htmlFor="pay">
-            You pay
-          </label>
-          <div className="field-row">
+        <div className="flex flex-col gap-1.5">
+          <FieldLabel htmlFor="pay">You pay</FieldLabel>
+          <div className="flex items-stretch border border-input bg-background focus-within:border-ring">
             <input
               id="pay"
-              className="amount"
+              className="fig min-w-0 flex-1 bg-transparent px-3 py-2.5 text-[17px] outline-none placeholder:text-muted-foreground"
               inputMode="decimal"
               placeholder="0.0"
               value={amount}
@@ -305,12 +298,17 @@ export function TradeInstrument() {
           </div>
         </div>
 
-        <div className="field">
-          <label className="label" htmlFor="get">
+        <div className="flex flex-col gap-1.5">
+          <FieldLabel htmlFor="get">
             You receive {mode === 'limit' ? '· at your price' : '· estimated'}
-          </label>
-          <div className="field-row">
-            <output id="get" className={`amount-out${quotedOut === null ? ' pending' : ''}`}>
+          </FieldLabel>
+          <div className="flex items-stretch border border-input bg-background">
+            <output
+              id="get"
+              className={`fig flex min-w-0 flex-1 items-center px-3 py-2.5 text-[17px] ${
+                quotedOut === null ? 'text-muted-foreground' : 'text-foreground'
+              }`}
+            >
               {mode === 'limit' ? fmtOut(limitOut) : fmtOut(quotedOut)}
             </output>
             <TokenPicker label="token" tokens={dstTokens} selected={dst} onSelect={setDst} />
@@ -318,34 +316,33 @@ export function TradeInstrument() {
         </div>
 
         {mode === 'limit' && (
-          <div className="field">
-            <label className="label" htmlFor="limit">
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel htmlFor="limit">
               Limit price · {dst && src ? `${dst.symbol} per ${src.symbol}` : 'set tokens'}
-            </label>
-            <div className="field-row">
+            </FieldLabel>
+            <div className="flex items-stretch border border-input bg-background focus-within:border-ring">
               <input
                 id="limit"
-                className="amount"
+                className="fig min-w-0 flex-1 bg-transparent px-3 py-2.5 text-[17px] outline-none placeholder:text-muted-foreground"
                 inputMode="decimal"
                 placeholder={rate ? rate.toPrecision(6) : '0.0'}
                 value={limitPrice}
                 onChange={e => setLimitPrice(e.target.value.replace(/[^0-9.]/g, ''))}
               />
               {rate && (
-                <button
-                  type="button"
-                  className="btn"
-                  style={{ border: 0, borderLeft: '1px solid var(--hairline-hi)' }}
+                <Button
+                  variant="ghost"
+                  className="label-micro h-auto rounded-none border-l border-input px-3"
                   onClick={() => setLimitPrice(rate.toPrecision(6))}
                 >
                   Market
-                </button>
+                </Button>
               )}
             </div>
           </div>
         )}
 
-        <dl className="readout">
+        <dl className="flex flex-col gap-1.5">
           <Readout
             k="Rate"
             v={rate && src && dst ? `${rate.toPrecision(6)} ${dst.symbol}` : '—'}
@@ -362,62 +359,50 @@ export function TradeInstrument() {
           />
         </dl>
 
-        <button className="btn btn-primary" disabled={busy || !intentParams} onClick={submit}>
+        <Button
+          size="lg"
+          className="w-full font-semibold"
+          disabled={busy || !intentParams}
+          onClick={submit}
+        >
           {actionLabel}
-        </button>
+        </Button>
 
-        {walletHint && <p className="note">{walletHint}</p>}
-
-        {error && (
-          <p className="alert" role="alert">
-            {error}
-          </p>
-        )}
+        {walletHint && <Note>{walletHint}</Note>}
+        {error && <ErrorNote>{error}</ErrorNote>}
 
         {submitted && (
-          <div className="receipt" role="status">
-            <span className="badge badge-up">
+          <div role="status" className="flex items-center gap-2 border border-viable/40 p-2">
+            <Badge variant="outline" className="border-viable/50 text-viable">
               {submitted.kind === 'limit' ? 'Order placed' : 'Swap sent'}
+            </Badge>
+            <span className="fig text-[11px]">{submitted.pair}</span>
+            <span className="fig text-[11px] text-muted-foreground">
+              {submitted.srcTxHash.slice(0, 10)}…
             </span>
-            <span>{submitted.pair}</span>
-            <span className="muted">{submitted.srcTxHash.slice(0, 10)}…</span>
           </div>
         )}
 
         {mode === 'xstocks' && (
-          <div className="instr-section" style={{ paddingTop: 12 }}>
-            <span className="label">Tokenized equities · settle on Solana</span>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-              {xStocks.length === 0 && <p className="note">None served right now.</p>}
+          <div className="border-t border-border pt-3">
+            <span className="label-micro">Tokenized equities · settle on Solana</span>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {xStocks.length === 0 && <Note>None served right now.</Note>}
               {xStocks.map(t => (
-                <button
+                <Button
                   key={t.address}
-                  className="btn btn-row"
-                  aria-pressed={dst?.address === t.address}
-                  style={
-                    dst?.address === t.address
-                      ? { borderColor: 'var(--track-yellow)', color: 'var(--track-yellow)' }
-                      : undefined
-                  }
+                  size="sm"
+                  variant={dst?.address === t.address ? 'default' : 'outline'}
+                  className="fig h-7 text-[11px]"
                   onClick={() => setDst(t)}
                 >
                   {t.symbol}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
         )}
-      </div>
+      </InstrumentBody>
     </>
-  );
-}
-
-function Readout({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="readout-row">
-      <dt>{k}</dt>
-      <span className="rule" />
-      <dd>{v}</dd>
-    </div>
   );
 }

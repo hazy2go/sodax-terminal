@@ -18,7 +18,23 @@ import { parseUnits } from 'viem';
 import { chainName } from '@/lib/config';
 import { chainTypeOf, TRADE_CHAINS } from '@/lib/tokens';
 import { cleanSymbol, fmtPct } from '@/lib/format';
-import { IconClose } from '@/components/icons';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Readout, FieldLabel, Note, ErrorNote } from '@/components/instrument';
 
 type MMAction = 'supply' | 'borrow' | 'withdraw' | 'repay';
 const ACTIONS: MMAction[] = ['supply', 'borrow', 'withdraw', 'repay'];
@@ -46,14 +62,6 @@ export function MMSheet({
   const [done, setDone] = useState(false);
 
   const symbol = cleanSymbol(reserve.symbol);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const chainOptions = useMemo(() => {
     const out: { chainKey: SpokeChainKey; token: XToken }[] = [];
@@ -133,69 +141,53 @@ export function MMSheet({
   const apy = borrowSide ? reserve.variableBorrowAPY : reserve.supplyAPY;
 
   return (
-    <div className="scrim" onClick={onClose}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${symbol} money market`}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="instr-head">
-          <h2 className="instr-title">{symbol} · Money market</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
-            <IconClose size={15} />
-          </button>
-        </div>
+    <Dialog open onOpenChange={open => !open && onClose()}>
+      <DialogContent className="max-w-[440px] gap-0 p-0">
+        <DialogHeader className="border-b border-border px-4 py-3">
+          <DialogTitle className="panel-title">{symbol} · Money market</DialogTitle>
+        </DialogHeader>
 
-        <div className="instr-body">
-          <div className="seg" role="tablist" aria-label="Action">
-            {ACTIONS.map(a => (
-              <button
-                key={a}
-                role="tab"
-                aria-selected={action === a}
-                className="seg-btn"
-                onClick={() => {
-                  setAction(a);
-                  setError(null);
-                  setDone(false);
-                }}
-              >
-                {a}
-              </button>
-            ))}
-          </div>
-
-          <div className="field">
-            <label className="label" htmlFor="mm-chain">
-              {action === 'supply' || action === 'repay' ? 'From chain' : 'To chain'}
-            </label>
-            <select
-              id="mm-chain"
-              className="input"
-              value={chainKey ?? ''}
-              onChange={e => setChainKey(e.target.value as SpokeChainKey)}
-            >
-              {chainOptions.map(c => (
-                <option key={c.chainKey} value={c.chainKey}>
-                  {chainName(c.chainKey)} · {c.token.symbol}
-                </option>
+        <div className="flex flex-col gap-3.5 p-4">
+          <Tabs value={action} onValueChange={a => { setAction(a as MMAction); setError(null); setDone(false); }}>
+            <TabsList className="w-full">
+              {ACTIONS.map(a => (
+                <TabsTrigger key={a} value={a} className="flex-1 capitalize">
+                  {a}
+                </TabsTrigger>
               ))}
-            </select>
+            </TabsList>
+          </Tabs>
+
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel>
+              {action === 'supply' || action === 'repay' ? 'From chain' : 'To chain'}
+            </FieldLabel>
+            <Select
+              value={chainKey ?? ''}
+              onValueChange={v => setChainKey(v as SpokeChainKey)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a chain" />
+              </SelectTrigger>
+              <SelectContent>
+                {chainOptions.map(c => (
+                  <SelectItem key={c.chainKey} value={c.chainKey}>
+                    {chainName(c.chainKey)} · {c.token.symbol}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {chainOptions.length === 0 && (
-              <p className="note">No spoke token for {symbol} on the mounted chains.</p>
+              <Note>No spoke token for {symbol} on the mounted chains.</Note>
             )}
           </div>
 
-          <div className="field">
-            <label className="label" htmlFor="mm-amount">
-              Amount
-            </label>
-            <div className="field-row">
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel htmlFor="mm-amount">Amount</FieldLabel>
+            <div className="flex items-stretch border border-input bg-background focus-within:border-ring">
               <input
                 id="mm-amount"
-                className="amount"
+                className="fig min-w-0 flex-1 bg-transparent px-3 py-2.5 text-[17px] outline-none placeholder:text-muted-foreground"
                 inputMode="decimal"
                 placeholder="0.0"
                 value={amount}
@@ -204,21 +196,18 @@ export function MMSheet({
             </div>
           </div>
 
-          <dl className="readout">
-            <div className="readout-row">
-              <dt>{borrowSide ? 'Borrow APY' : 'Supply APY'}</dt>
-              <span className="rule" />
-              <dd className={borrowSide ? '' : 'up'}>{fmtPct(apy)}</dd>
-            </div>
-            <div className="readout-row">
-              <dt>Utilisation</dt>
-              <span className="rule" />
-              <dd>{fmtPct(reserve.borrowUsageRatio, 0)}</dd>
-            </div>
+          <dl className="flex flex-col gap-1.5">
+            <Readout
+              k={borrowSide ? 'Borrow APY' : 'Supply APY'}
+              v={fmtPct(apy)}
+              tone={borrowSide ? undefined : 'up'}
+            />
+            <Readout k="Utilisation" v={fmtPct(reserve.borrowUsageRatio, 0)} />
           </dl>
 
-          <button
-            className="btn btn-primary"
+          <Button
+            size="lg"
+            className="w-full font-semibold"
             disabled={busy || !params || needsWallet}
             onClick={submit}
           >
@@ -229,29 +218,24 @@ export function MMSheet({
                 : !params
                   ? 'Enter an amount'
                   : `${action[0].toUpperCase()}${action.slice(1)} ${symbol}`}
-          </button>
+          </Button>
 
           {needsWallet && (
-            <p className="note">
-              Connect a {chainKey ? chainName(chainKey) : ''} wallet to continue.
-            </p>
+            <Note>Connect a {chainKey ? chainName(chainKey) : ''} wallet to continue.</Note>
           )}
-
-          {error && (
-            <p className="alert" role="alert">
-              {error}
-            </p>
-          )}
+          {error && <ErrorNote>{error}</ErrorNote>}
           {done && (
-            <div className="receipt" role="status">
-              <span className="badge badge-up">Confirmed</span>
-              <span>
+            <div role="status" className="flex items-center gap-2 border border-viable/40 p-2">
+              <Badge variant="outline" className="border-viable/50 text-viable">
+                Confirmed
+              </Badge>
+              <span className="fig text-[11px] capitalize">
                 {action} {symbol}
               </span>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
