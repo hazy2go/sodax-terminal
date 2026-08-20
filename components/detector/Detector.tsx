@@ -1,49 +1,53 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as echarts from 'echarts/core';
-import { GraphChart } from 'echarts/charts';
-import { TooltipComponent, TitleComponent } from 'echarts/components';
+import { LinesChart, EffectScatterChart, ScatterChart } from 'echarts/charts';
+import { TooltipComponent, GridComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
 import { useReservesUsdFormat, useBackendOrderbook, useSodaxContext } from '@sodax/dapp-kit';
 import { ChainKeys } from '@sodax/types';
 import { chainName, isTokenAllowed } from '@/lib/config';
-import { cleanSymbol, fmtUsd, fmtAmount } from '@/lib/format';
+import { cleanSymbol, fmtUsd } from '@/lib/format';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFocus } from './focus';
 
-echarts.use([GraphChart, TooltipComponent, TitleComponent, CanvasRenderer]);
+echarts.use([
+  LinesChart,
+  EffectScatterChart,
+  ScatterChart,
+  TooltipComponent,
+  GridComponent,
+  CanvasRenderer,
+]);
 
-const TRACK = '#ffd23a';
-const FLOW = '#35d0ff';
-const GRID = '#3a5a7a';
+const TRACK = '#ffd23a'; // hub / accent
+const FLOW = '#35d0ff'; // live activity
+const STEEL = '#3a5a7a'; // idle chain outline - neutral, NOT the destructive red
+const IDLE_FILL = '#22354a';
 const INK = '#e6ecf3';
 const MUTED = '#93a1b3';
 const CARD = '#070a0e';
-const ENERGY = '#ff4d4d';
 
-type NodeDatum = {
+const R = 100; // ring radius in chart space
+const EXTENT = 152; // axis half-extent; keeps the ring clear of the legend
+
+type ChainPoint = {
   name: string;
-  x: number;
-  y: number;
-  value: number;
+  value: [number, number, number];
   symbolSize: number;
   assets: number;
+  intents: number;
   hub: boolean;
-  itemStyle: {
-    color: string;
-    borderColor: string;
-    borderWidth: number;
-    opacity?: number;
-  };
-  label?: Record<string, unknown>;
+  itemStyle: { color: string; borderColor: string; borderWidth: number };
+  label: { position: 'left' | 'right'; color: string };
 };
 
 /**
- * The hub and its spokes as a real network graph. Node size is the money-market
- * liquidity a chain can reach; edges are live intents, weighted by remaining
- * amount. Hovering a chain focuses its own flows.
+ * The hub and its spokes, animated with ECharts flow effects rather than drawn
+ * as a static picture. The motion encodes data: particles travel only along
+ * routes that have live intents, and only chains with activity ripple.
  */
 export function Detector() {
   const { sodax } = useSodaxContext();
@@ -53,13 +57,23 @@ export function Detector() {
   });
   const { route } = useFocus();
 
+  // Motion is opt-out, and the reduced-motion build is a genuinely static chart.
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduceMotion(mq.matches);
+    const on = () => setReduceMotion(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+
   const spokes = useMemo(
     () =>
       sodax.config.getSupportedSpokeChains().filter(c => c !== ChainKeys.SONIC_MAINNET),
     [sodax],
   );
 
-  const { nodes, links, totalReach, hubLocal } = useMemo(() => {
+  const model = useMemo(() => {
     const bySymbol = new Map<string, number>();
     for (const r of reserves ?? []) {
       const sym = cleanSymbol(r.symbol);
@@ -78,110 +92,129 @@ export function Detector() {
       });
     }
 
-    const maxReach = Math.max(...[...reach.values()].map(r => r.usd), 1);
-    const size = (usd: number, lo: number, hi: number) =>
-      usd <= 0 ? lo : lo + (Math.sqrt(usd) / Math.sqrt(maxReach)) * (hi - lo);
-
-    const hubReach = reach.get(ChainKeys.SONIC_MAINNET) ?? { usd: 0, assets: 0 };
-    const nodes: NodeDatum[] = [
-      {
-        name: chainName(ChainKeys.SONIC_MAINNET),
-        x: 0,
-        y: 0,
-        value: hubReach.usd,
-        assets: hubReach.assets,
-        hub: true,
-        symbolSize: 64,
-        itemStyle: { color: CARD, borderColor: TRACK, borderWidth: 2 },
-        label: {
-          show: true,
-          position: 'inside',
-          color: INK,
-          fontFamily: 'Archivo, sans-serif',
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: 1.4,
-        },
-      },
-    ];
-
-    spokes.forEach((chainKey, i) => {
-      const a = (i / spokes.length) * Math.PI * 2 - Math.PI / 2;
-      const r = reach.get(chainKey) ?? { usd: 0, assets: 0 };
-      const lit = route
-        ? chainKey === route.srcChainKey || chainKey === route.dstChainKey
-        : false;
-      nodes.push({
-        name: chainName(chainKey),
-        x: Math.cos(a) * 100,
-        y: Math.sin(a) * 100,
-        value: r.usd,
-        assets: r.assets,
-        hub: false,
-        symbolSize: size(r.usd, 13, 42),
-        itemStyle: {
-          color: lit ? TRACK : ENERGY,
-          borderColor: lit ? TRACK : '#ff8a8a',
-          borderWidth: 1,
-          // brightness tracks reachable liquidity, so the ranking reads
-          // without hovering every node
-          opacity: r.usd > 0 ? 0.42 + 0.58 * (Math.sqrt(r.usd) / Math.sqrt(maxReach)) : 0.3,
-        },
-      });
-    });
-
-    // edges: live intents, weighted by remaining input
-    const byPair = new Map<
-      string,
-      { source: string; target: string; count: number; amount: string }
-    >();
+    // route counts per chain pair, plus per-chain activity and hub-local volume
+    const pairs = new Map<string, { from: string; to: string; count: number }>();
+    const activity = new Map<string, number>();
     let hubLocal = 0;
+
     for (const o of orderbook?.data ?? []) {
       const s = resolve(sodax, o.intentData.srcChain);
       const t = resolve(sodax, o.intentData.dstChain);
       if (!s || !t) continue;
-      if (s === t) {
-        hubLocal += 1;
-        continue;
-      }
       const token = sodax.config.getXTokenFromHubAsset(o.intentData.inputToken);
       if (!token || !isTokenAllowed(cleanSymbol(token.symbol))) continue;
 
-      const key = `${s}→${t}`;
-      const prev = byPair.get(key);
-      byPair.set(key, {
-        source: s,
-        target: t,
-        count: (prev?.count ?? 0) + 1,
-        amount: `${fmtAmount(o.intentState.remainingInput, token.decimals)} ${cleanSymbol(token.symbol)}`,
-      });
+      if (s === t) {
+        hubLocal += 1;
+        activity.set(s, (activity.get(s) ?? 0) + 1);
+        continue;
+      }
+      const key = `${s} ${t}`;
+      pairs.set(key, { from: s, to: t, count: (pairs.get(key)?.count ?? 0) + 1 });
+      activity.set(s, (activity.get(s) ?? 0) + 1);
+      activity.set(t, (activity.get(t) ?? 0) + 1);
     }
 
-    const links = [...byPair.values()].map(l => ({
-      source: l.source,
-      target: l.target,
-      value: l.count,
-      amount: l.amount,
+    const maxReach = Math.max(...[...reach.values()].map(r => r.usd), 1);
+    const pos = new Map<string, [number, number]>();
+    const hubName = chainName(ChainKeys.SONIC_MAINNET);
+    pos.set(hubName, [0, 0]);
+
+    const idle: ChainPoint[] = [];
+    const live: ChainPoint[] = [];
+
+    spokes.forEach((chainKey, i) => {
+      const a = (i / spokes.length) * Math.PI * 2 - Math.PI / 2;
+      const x = Math.cos(a) * R;
+      const y = -Math.sin(a) * R;
+      const name = chainName(chainKey);
+      pos.set(name, [x, y]);
+
+      const r = reach.get(chainKey) ?? { usd: 0, assets: 0 };
+      const intents = activity.get(name) ?? 0;
+      const lit = route
+        ? chainKey === route.srcChainKey || chainKey === route.dstChainKey
+        : false;
+      const active = intents > 0 || lit;
+
+      const point: ChainPoint = {
+        name,
+        value: [x, y, r.usd],
+        symbolSize: 9 + (Math.sqrt(r.usd) / Math.sqrt(maxReach)) * 17,
+        assets: r.assets,
+        intents,
+        hub: false,
+        itemStyle: {
+          color: lit ? TRACK : active ? FLOW : IDLE_FILL,
+          borderColor: lit ? TRACK : active ? FLOW : STEEL,
+          borderWidth: 1,
+        },
+        // label sits outboard of the ring, so it never lands on a neighbour
+        label: { position: x >= 0 ? 'right' : 'left', color: active ? INK : MUTED },
+      };
+      (active ? live : idle).push(point);
+    });
+
+    const hubReach = reach.get(ChainKeys.SONIC_MAINNET) ?? { usd: 0, assets: 0 };
+    const hub: ChainPoint = {
+      name: hubName,
+      value: [0, 0, hubReach.usd],
+      symbolSize: 34,
+      assets: hubReach.assets,
+      intents: hubLocal,
+      hub: true,
+      itemStyle: { color: TRACK, borderColor: TRACK, borderWidth: 0 },
+      label: { position: 'right', color: INK },
+    };
+
+    // one animated line per live route
+    const flows = [...pairs.values()].map(p => ({
+      coords: [pos.get(p.from) ?? [0, 0], pos.get(p.to) ?? [0, 0]],
+      value: p.count,
+      from: p.from,
+      to: p.to,
       lineStyle: {
-        color: l.source === chainName(ChainKeys.SONIC_MAINNET) ? TRACK : FLOW,
-        width: Math.min(4, 1 + Math.log2(l.count + 1)),
-        opacity: 0.85,
+        color: p.from === hubName ? TRACK : FLOW,
+        width: Math.min(2.4, 0.8 + Math.log2(p.count + 1) * 0.6),
+        opacity: 0.28,
         curveness: 0.22,
       },
     }));
 
     return {
-      nodes,
-      links,
+      idle,
+      live,
+      hub,
+      flows,
       hubLocal,
       totalReach: [...reach.values()].reduce((s, r) => s + r.usd, 0),
     };
   }, [reserves, orderbook, sodax, spokes, route]);
 
-  const option = useMemo(
-    () => ({
+  const option = useMemo(() => {
+    const labelBase = {
+      show: true,
+      distance: 8,
+      fontFamily: 'Geist Mono, monospace',
+      fontSize: 10,
+      formatter: (p: { name: string }) => p.name.toUpperCase(),
+    };
+
+    const pointTip = (p: { data: ChainPoint }) => {
+      const d = p.data;
+      return [
+        `<b>${d.name}</b>${d.hub ? ' - hub' : ''}`,
+        `reachable ${fmtUsd(d.value[2], { compact: true })}`,
+        `${d.assets} assets`,
+        d.intents > 0
+          ? `${d.intents} open intent${d.intents === 1 ? '' : 's'}`
+          : 'no open intents',
+      ].join('<br/>');
+    };
+
+    return {
       backgroundColor: 'transparent',
-      animationDuration: 900,
+      animationDuration: 800,
       animationEasing: 'quinticOut' as const,
       tooltip: {
         backgroundColor: CARD,
@@ -189,67 +222,92 @@ export function Detector() {
         borderWidth: 1,
         padding: [8, 10],
         textStyle: { color: INK, fontFamily: 'Geist Mono, monospace', fontSize: 11 },
-        formatter: (p: {
-          dataType: string;
-          data: Record<string, unknown>;
-          name: string;
-        }) => {
-          if (p.dataType === 'edge') {
-            const d = p.data as { source: string; target: string; value: number };
-            return `<b>${d.source} → ${d.target}</b><br/>${d.value} open intent${d.value === 1 ? '' : 's'}`;
-          }
-          const d = p.data as unknown as NodeDatum;
-          return [
-            `<b>${d.name}</b>${d.hub ? ' · hub' : ''}`,
-            `reachable ${fmtUsd(d.value, { compact: true })}`,
-            `${d.assets} assets`,
-          ].join('<br/>');
-        },
       },
+      xAxis: { type: 'value' as const, min: -EXTENT, max: EXTENT, show: false },
+      yAxis: { type: 'value' as const, min: -EXTENT, max: EXTENT, show: false },
+      grid: { left: 0, right: 0, top: 0, bottom: 0 },
       series: [
+        // the routes themselves, faint - the particles carry the eye
         {
-          type: 'graph' as const,
-          layout: 'none' as const,
-          coordinateSystem: undefined,
-          roam: true,
-          draggable: false,
-          data: nodes,
-          links,
-          edgeSymbol: ['none', 'arrow'],
-          edgeSymbolSize: 6,
-          focusNodeAdjacency: true,
-          emphasis: {
-            focus: 'adjacency' as const,
-            scale: 1.06,
-            lineStyle: { width: 3, opacity: 1 },
-            label: { color: INK },
+          type: 'lines' as const,
+          coordinateSystem: 'cartesian2d',
+          polyline: false,
+          data: model.flows,
+          silent: true,
+          z: 1,
+        },
+        // travelling particles: motion only where intents actually flow
+        {
+          type: 'lines' as const,
+          coordinateSystem: 'cartesian2d',
+          data: model.flows,
+          z: 2,
+          effect: {
+            show: !reduceMotion,
+            period: 4,
+            trailLength: 0.42,
+            symbol: 'circle',
+            symbolSize: 3.4,
+            loop: true,
           },
-          blur: { itemStyle: { opacity: 0.18 }, lineStyle: { opacity: 0.06 } },
+          lineStyle: { width: 0, opacity: 0 },
+          tooltip: {
+            formatter: (p: { data: { from: string; to: string; value: number } }) =>
+              `<b>${p.data.from} to ${p.data.to}</b><br/>${p.data.value} open intent${p.data.value === 1 ? '' : 's'}`,
+          },
+        },
+        // idle chains - plain points, so a ripple always means real activity
+        {
+          type: 'scatter' as const,
+          coordinateSystem: 'cartesian2d',
+          data: model.idle,
+          z: 3,
+          label: { ...labelBase },
+          tooltip: { formatter: pointTip },
+        },
+        // chains carrying live intents - rippling
+        {
+          type: reduceMotion ? ('scatter' as const) : ('effectScatter' as const),
+          coordinateSystem: 'cartesian2d',
+          data: model.live,
+          z: 4,
+          rippleEffect: { scale: 3, brushType: 'stroke', period: 3.5 },
+          label: { ...labelBase },
+          tooltip: { formatter: pointTip },
+        },
+        // the hub - its ripple carries hub-local intent volume
+        {
+          type: reduceMotion ? ('scatter' as const) : ('effectScatter' as const),
+          coordinateSystem: 'cartesian2d',
+          data: [model.hub],
+          z: 5,
+          rippleEffect: {
+            scale: model.hubLocal > 0 ? 3.6 : 2,
+            brushType: 'stroke',
+            period: 3,
+          },
           label: {
-            show: true,
-            position: 'right' as const,
-            distance: 7,
-            color: MUTED,
-            fontFamily: 'Geist Mono, monospace',
+            ...labelBase,
+            position: 'inside' as const,
+            distance: 0,
+            fontFamily: 'Archivo, sans-serif',
             fontSize: 10,
-            formatter: (p: { name: string }) => p.name.toUpperCase(),
+            fontWeight: 600,
+            color: CARD,
           },
-          lineStyle: { color: GRID, curveness: 0.22 },
-          zoom: 0.82,
-          scaleLimit: { min: 0.6, max: 3 },
+          tooltip: { formatter: pointTip },
         },
       ],
-    }),
-    [nodes, links],
-  );
+    };
+  }, [model, reduceMotion]);
 
   const loading = !reserves && !orderbook;
 
   return (
-    <div className="relative h-full min-h-0 w-full overflow-hidden bg-[radial-gradient(ellipse_70%_70%_at_50%_50%,#0e141c_0%,var(--background)_65%)]">
+    <div className="relative h-full min-h-0 w-full overflow-hidden bg-[radial-gradient(ellipse_60%_60%_at_50%_50%,#0e141c_0%,var(--background)_70%)]">
       {loading ? (
         <div className="flex h-full items-center justify-center">
-          <Skeleton className="h-[70%] w-[70%] rounded-full" />
+          <Skeleton className="h-[60%] w-[60%] rounded-full" />
         </div>
       ) : (
         <ReactEChartsCore
@@ -261,22 +319,27 @@ export function Detector() {
         />
       )}
 
-      <div className="pointer-events-none absolute bottom-4 left-4 hidden max-w-[280px] space-y-1.5 border border-border bg-card/85 p-3 backdrop-blur-sm lg:block">
+      <div className="pointer-events-none absolute bottom-4 left-4 hidden max-w-[290px] space-y-1.5 border border-border bg-card/85 p-3 backdrop-blur-sm lg:block">
         <div className="label-micro">Reading this</div>
-        <LegendRow swatch={<span className="size-2.5 rounded-full bg-energy" />}>
-          Each node is a chain — size is liquidity it can reach
-        </LegendRow>
-        <LegendRow swatch={<span className="h-0.5 w-5 bg-track" />}>
-          An edge is open intents flowing between two chains
-        </LegendRow>
         <LegendRow
-          swatch={<span className="size-2.5 rounded-full border-2 border-track" />}
+          swatch={
+            <span className="size-2.5 rounded-full bg-[#22354a] ring-1 ring-[#3a5a7a]" />
+          }
         >
-          Sonic is the hub every route settles through
+          A chain with no open intents right now
+        </LegendRow>
+        <LegendRow swatch={<span className="size-2.5 rounded-full bg-flow" />}>
+          Pulsing, a chain carrying live intents
+        </LegendRow>
+        <LegendRow swatch={<span className="h-0.5 w-5 bg-flow" />}>
+          Particles travel the routes intents are actually taking
+        </LegendRow>
+        <LegendRow swatch={<span className="size-2.5 rounded-full bg-track" />}>
+          Sonic, the hub every route settles through
         </LegendRow>
         <div className="fig pt-1 text-[11px] text-muted-foreground">
-          {fmtUsd(totalReach, { compact: true })} reachable · {links.length} cross-chain
-          {hubLocal > 0 && ` · ${hubLocal} on-hub`}
+          {fmtUsd(model.totalReach, { compact: true })} reachable, {model.flows.length}{' '}
+          cross-chain{model.hubLocal > 0 && `, ${model.hubLocal} on-hub`}
         </div>
       </div>
     </div>
@@ -298,7 +361,7 @@ function LegendRow({
   );
 }
 
-/** Relay chain ids are not EVM chain ids — always resolve through the SDK. */
+/** Relay chain ids are not EVM chain ids - always resolve through the SDK. */
 function resolve(
   sodax: ReturnType<typeof useSodaxContext>['sodax'],
   relayChainId: number,
