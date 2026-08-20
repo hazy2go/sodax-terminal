@@ -81,16 +81,26 @@ not rounded.
 
 ## The detector
 
-- 20 concentric rings, one per supported spoke chain, `FIRST_R 84` + `18.5` gap, in a
-  1180×1000 user-space box. Sonic is the core at `r 52`, not a ring.
-- **Calorimeter bars**: a radial bar chart on the right arc. One bar per asset a chain can
-  source; length is log-scaled protocol-wide supplied liquidity. Each ring's group is
-  nudged around the arc so groups read as a field, not as collinear rows.
-- **Tracks**: real open intents. Cross-chain intents are two cubics meeting at the core;
-  hub-local (Sonic→Sonic) intents are short loops off the core rather than dropped.
-- **Composed route**: the trade form lights its own src→dst track, dashed while quoting
-  and solid once the quote lands. The form and the diagram are one surface.
-- Ring labels run up the beam axis, one row per ring, stroked against the ground.
+A polar bar chart, not an illustration. Every mark encodes a value and the
+legend names all four.
+
+- **Sectors, not rings, are chains.** Each of the 20 supported spoke chains owns
+  an angular sector with its name set on its own angle. Chains were originally
+  concentric rings, but bars then had only the ring gap to grow into, so every
+  bar crossed its neighbours and the field read as debris.
+- **One wedge per chain**, length = the total money-market liquidity that chain
+  can reach, summed over the assets it supports. Drawing a bar per asset instead
+  repeated the same protocol-wide figures in all 20 sectors — 103 marks encoding
+  the same handful of numbers, in a radially symmetric starburst that said
+  nothing.
+- **The concentric rings are the value axis**, fitted to the data and labelled at
+  each decade. A hard-coded domain saturated every wedge at full length.
+- **Tracks are real open intents**, arcing from their source sector through the
+  beamline core to their destination, terminating in a visible dot. Hub-local
+  (Sonic→Sonic) intents loop off the core, sized by remaining amount.
+- **The composed route** from the trade form lights as a thicker track, dashed
+  while quoting and solid once the quote lands. Form and diagram are one surface.
+- Sonic is the core, showing total supplied.
 
 ## Motion
 
